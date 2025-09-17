@@ -67,6 +67,11 @@ export type LastMessageList =
   | MinimalMessage[]
   | proto.SyncActionValue.ISyncActionMessageRange;
 
+export type VoteAggregation = {
+  name: string;
+  voters: string[];
+};
+
 export type ChatModification =
   | {
       archive: boolean;

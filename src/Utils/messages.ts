@@ -20,6 +20,7 @@ import {
   MessageGenerationOptionsFromContent,
   MessageType,
   MessageUserReceipt,
+  VoteAggregation,
   WAMediaUpload,
   WAMessage,
   WAMessageContent,
@@ -37,6 +38,7 @@ import {
   getAudioDuration,
   MediaDownloadOptions
 } from "./messages-media";
+import { sha256 } from "./crypto";
 
 type MediaUploadData = {
   media: WAMediaUpload;
@@ -706,6 +708,74 @@ export const updateMessageWithReaction = (
 
   msg.reactions = reactions;
 };
+
+/** Update the message with a new poll update */
+export const updateMessageWithPollUpdate = (
+  msg: Pick<WAMessage, "pollUpdates">,
+  update: proto.IPollUpdate
+) => {
+  const authorID = getKeyAuthor(update.pollUpdateMessageKey);
+
+  const reactions = (msg.pollUpdates || []).filter(
+    r => getKeyAuthor(r.pollUpdateMessageKey) !== authorID
+  );
+  if (update.vote?.selectedOptions?.length) {
+    reactions.push(update);
+  }
+
+  msg.pollUpdates = reactions;
+};
+
+/**
+ * Aggregates all poll updates in a poll.
+ * @param msg the poll creation message
+ * @param meId your jid
+ * @returns A list of options & their voters
+ */
+export function getAggregateVotesInPollMessage({
+  message,
+  pollUpdates
+}: Pick<WAMessage, "pollUpdates" | "message">) {
+  const opts =
+    message?.pollCreationMessage?.options ||
+    message?.pollCreationMessageV2?.options ||
+    message?.pollCreationMessageV3?.options ||
+    [];
+  const voteHashMap = opts.reduce(
+    (acc, opt) => {
+      const hash = sha256(Buffer.from(opt.optionName || "")).toString();
+      acc[hash] = {
+        name: opt.optionName || "",
+        voters: []
+      };
+      return acc;
+    },
+    {} as { [_: string]: VoteAggregation }
+  );
+
+  for (const update of pollUpdates || []) {
+    const { vote } = update;
+    if (!vote) {
+      continue;
+    }
+
+    for (const option of vote.selectedOptions || []) {
+      const hash = option.toString();
+      let data = voteHashMap[hash];
+      if (!data) {
+        voteHashMap[hash] = {
+          name: "Unknown",
+          voters: []
+        };
+        data = voteHashMap[hash];
+      }
+
+      voteHashMap[hash]!.voters.push(getKeyAuthor(update.pollUpdateMessageKey));
+    }
+  }
+
+  return Object.values(voteHashMap);
+}
 
 /** Given a list of message keys, aggregates them by chat & sender. Useful for sending read receipts in bulk */
 export const aggregateMessageKeysNotFromMe = (keys: proto.IMessageKey[]) => {

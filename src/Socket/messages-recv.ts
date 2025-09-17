@@ -161,10 +161,11 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
       signedIdentityKey: identityKey
     } = authState.creds;
 
-
     if (retryCount <= 2) {
-      const msgId = await requestPlaceholderResend(msgKey)
-      logger.debug(`sendRetryRequest: requested placeholder resend for message ${msgId} (scheduled)`)
+      const msgId = await requestPlaceholderResend(msgKey);
+      logger.debug(
+        `sendRetryRequest: requested placeholder resend for message ${msgId} (scheduled)`
+      );
     }
 
     const deviceIdentity = encodeSignedDeviceIdentity(account!, true);
