@@ -140,7 +140,8 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 
   const sendRetryRequest = async (
     node: BinaryNode,
-    forceIncludeKeys = false
+    forceIncludeKeys = false,
+    msgKey: WAMessageKey
   ) => {
     const msgId = node.attrs.id;
 
@@ -159,6 +160,12 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
       signedPreKey,
       signedIdentityKey: identityKey
     } = authState.creds;
+
+
+    if (retryCount <= 2) {
+      const msgId = await requestPlaceholderResend(msgKey)
+      logger.debug(`sendRetryRequest: requested placeholder resend for message ${msgId} (scheduled)`)
+    }
 
     const deviceIdentity = encodeSignedDeviceIdentity(account!, true);
     await authState.keys.transaction(async () => {
@@ -756,7 +763,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
             retryMutex.mutex(async () => {
               if (ws.readyState === ws.OPEN) {
                 const encNode = getBinaryNodeChild(node, "enc");
-                await sendRetryRequest(node, !encNode);
+                await sendRetryRequest(node, !encNode, msg.key);
                 if (retryRequestDelayMs) {
                   await delay(retryRequestDelayMs);
                 }
