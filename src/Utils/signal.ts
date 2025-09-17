@@ -157,6 +157,32 @@ export const signalStorage = ({ creds, keys }: SignalAuthState) => ({
     };
   }
 });
+export const validateSession = async (
+  user: string,
+  auth: SignalAuthState
+): Promise<{
+  exists: boolean;
+  reason?: "no session" | "no open session" | "validation error";
+}> => {
+  try {
+    const storage = signalStorage(auth);
+    const addr = jidToSignalProtocolAddress(user);
+
+    const session = await storage.loadSession(addr.toString());
+
+    if (!session) {
+      return { exists: false, reason: "no session" };
+    }
+
+    if (!session.haveOpenSession()) {
+      return { exists: false, reason: "no open session" };
+    }
+
+    return { exists: true };
+  } catch (error) {
+    return { exists: false, reason: "validation error" };
+  }
+};
 
 export const decryptGroupSignalProto = (
   group: string,

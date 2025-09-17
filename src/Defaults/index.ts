@@ -13,7 +13,7 @@ export const DEF_TAG_PREFIX = "TAG:";
 export const PHONE_CONNECTION_CB = "CB:Pong";
 
 export const WA_DEFAULT_EPHEMERAL = 7 * 24 * 60 * 60;
-
+export const MAX_MESSAGE_RETRY_COUNT = 5;
 export const DEFAULT_CACHE_TTLS = {
   SIGNAL_STORE: 5 * 60, // 5 minutes
   MSG_RETRY: 60 * 60, // 1 hour
@@ -64,6 +64,8 @@ export const DEFAULT_CONNECTION_CONFIG: SocketConfig = {
   linkPreviewImageThumbnailWidth: 192,
   transactionOpts: { maxCommitRetries: 10, delayBetweenTriesMs: 3000 },
   generateHighQualityLinkPreview: false,
+  enableAutoSessionRecreation: true,
+  enableRecentMessageCache: true,
   options: {},
   getMessage: async () => undefined,
   groupMetadataCache: new NodeCache({

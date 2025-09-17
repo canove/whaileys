@@ -70,7 +70,7 @@ type BaileysBufferableEventEmitter = BaileysEventEmitter & {
 /**
  * The event buffer logically consolidates different events into a single event
  * making the data processing more efficient.
- * @param ev the baileys event emitter
+ * @param logger the pino logger instance for debugging and monitoring
  */
 export const makeEventBuffer = (
   logger: Logger
@@ -78,9 +78,15 @@ export const makeEventBuffer = (
   const ev = new EventEmitter();
   const historyCache = new Set<string>();
 
+  // Configurações para evitar travamentos
+  const MAX_CONDITIONAL_RETRIES = 10;
+  const FLUSH_TIMEOUT = 30000; // 30 segundos
+  const MAX_HISTORY_CACHE_SIZE = 10000;
+
   let data = makeBufferData();
   let isBuffering = false;
   let preBufferTask: Promise<any> = Promise.resolve();
+  const conditionalRetryCount = new Map<string, number>();
 
   // take the generic event and fire it as a baileys event
   ev.on("event", (map: BaileysEventData) => {
@@ -105,7 +111,21 @@ export const makeEventBuffer = (
     }
 
     logger.trace("releasing buffered events...");
-    await preBufferTask;
+
+    // Implementar timeout para evitar travamento
+    try {
+      await Promise.race([
+        preBufferTask,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Flush timeout")), FLUSH_TIMEOUT)
+        )
+      ]);
+    } catch (error) {
+      logger.warn(
+        { error: error.message },
+        "preBufferTask timed out or failed, continuing with flush"
+      );
+    }
 
     isBuffering = false;
 
@@ -115,9 +135,21 @@ export const makeEventBuffer = (
     let conditionalChatUpdatesLeft = 0;
     for (const update of chatUpdates) {
       if (update.conditional) {
-        conditionalChatUpdatesLeft += 1;
-        newData.chatUpdates[update.id!] = update;
-        delete data.chatUpdates[update.id!];
+        const retryCount = conditionalRetryCount.get(update.id!) || 0;
+
+        // Limitar tentativas para evitar loops infinitos
+        if (retryCount < MAX_CONDITIONAL_RETRIES) {
+          conditionalChatUpdatesLeft += 1;
+          newData.chatUpdates[update.id!] = update;
+          conditionalRetryCount.set(update.id!, retryCount + 1);
+          delete data.chatUpdates[update.id!];
+        } else {
+          logger.warn(
+            { chatId: update.id },
+            "dropping conditional update after max retries"
+          );
+          conditionalRetryCount.delete(update.id!);
+        }
       }
     }
 
@@ -127,6 +159,15 @@ export const makeEventBuffer = (
     }
 
     data = newData;
+
+    // Limpar cache se estiver muito grande
+    if (historyCache.size > MAX_HISTORY_CACHE_SIZE) {
+      logger.debug(
+        { cacheSize: historyCache.size },
+        "clearing history cache to prevent memory leak"
+      );
+      historyCache.clear();
+    }
 
     logger.trace({ conditionalChatUpdatesLeft }, "released buffered events");
   }
@@ -155,7 +196,17 @@ export const makeEventBuffer = (
     },
     processInBuffer(task) {
       if (isBuffering) {
-        preBufferTask = Promise.allSettled([preBufferTask, task]);
+        // Evitar acúmulo infinito de promises
+        const currentTask = preBufferTask;
+        preBufferTask = Promise.allSettled([currentTask, task])
+          .then(() => {
+            // Resetar para Promise resolvida após completar
+            return Promise.resolve();
+          })
+          .catch(() => {
+            // Mesmo em caso de erro, resetar
+            return Promise.resolve();
+          });
       }
     },
     buffer,
@@ -164,8 +215,7 @@ export const makeEventBuffer = (
       return async (...args) => {
         const started = buffer();
         try {
-          const result = await work(...args);
-          return result;
+          return await work(...args);
         } finally {
           if (started) {
             await flush();

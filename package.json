@@ -40,6 +40,7 @@
     "futoin-hkdf": "^1.5.0",
     "libsignal": "github:canove/libsignal-node#11dbd962ea108187c79a7c46fe4d6f790e23da97",
     "lodash": "^4.17.21",
+    "lru-cache": "^11.2.1",
     "music-metadata": "^7.12.3",
     "node-cache": "^5.1.2",
     "pino": "^7.0.0",

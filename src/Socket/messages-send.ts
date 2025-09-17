@@ -1,7 +1,7 @@
 import { Boom } from "@hapi/boom";
 import NodeCache from "node-cache";
 import { proto } from "../../WAProto";
-import { WA_DEFAULT_EPHEMERAL } from "../Defaults";
+import { MAX_MESSAGE_RETRY_COUNT, WA_DEFAULT_EPHEMERAL } from "../Defaults";
 import {
   AnyMessageContent,
   GroupMetadata,
@@ -49,12 +49,14 @@ import {
   S_WHATSAPP_NET
 } from "../WABinary";
 import { makeGroupsSocket } from "./groups";
+import { MessageRetryManager } from "../Utils/message-retry-manager";
 
 export const makeMessagesSocket = (config: SocketConfig) => {
   const {
     logger,
     linkPreviewImageThumbnailWidth,
-    generateHighQualityLinkPreview
+    generateHighQualityLinkPreview,
+    enableRecentMessageCache
   } = config;
   const sock = makeGroupsSocket(config);
   const {
@@ -75,6 +77,11 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       stdTTL: 300, // 5 minutes
       useClones: false
     });
+
+  // Initialize message retry manager if enabled
+  const messageRetryManager = enableRecentMessageCache
+    ? new MessageRetryManager(logger, MAX_MESSAGE_RETRY_COUNT)
+    : null;
 
   const groupMetadataCache = config.groupMetadataCache;
 
@@ -670,6 +677,11 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       );
 
       await sendNode(stanza);
+
+      // Add message to retry cache if enabled
+      if (messageRetryManager && !participant) {
+        messageRetryManager.addRecentMessage(destinationJid, msgId!, message);
+      }
     });
 
     return msgId;
@@ -711,6 +723,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
     ...sock,
     getPrivacyTokens,
     getUSyncDevices,
+    messageRetryManager,
     assertSessions,
     relayMessage,
     sendReceipt,
