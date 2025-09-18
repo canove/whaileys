@@ -520,7 +520,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
         // if there are some participants with whom the session has not been established
         // if there are, we re-send the senderkey
-        if (senderKeyJids.length) {
+        if (senderKeyJids.length && !participant?.count) {
           logger.debug({ senderKeyJids }, "sending new sender key");
 
           const encSenderKeyMsg = encodeWAMessage({
@@ -543,11 +543,19 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           participants.push(...result.nodes);
         }
 
-        binaryNodeContent.push({
-          tag: "enc",
-          attrs: { v: "2", type: "skmsg" },
-          content: ciphertext
-        });
+        if (participant?.count) {
+          binaryNodeContent.push({
+            tag: "enc",
+            attrs: { v: "2", type: "msg", count: participant.count.toString() },
+            content: ciphertext
+          });
+        } else {
+          binaryNodeContent.push({
+            tag: "enc",
+            attrs: { v: "2", type: "skmsg" },
+            content: ciphertext
+          });
+        }
 
         await authState.keys.set({
           "sender-key-memory": { [jid]: senderKeyMap }
