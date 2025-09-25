@@ -586,6 +586,13 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
         }
 
         await relayMessage(key.remoteJid!, msg, msgRelayOpts);
+        logger.info(
+          {
+            jid: key.remoteJid,
+            id: ids[i]
+          },
+          "Received a retry request and sent message again"
+        );
       } else {
         logger.debug(
           { jid: key.remoteJid, id: ids[i] },
