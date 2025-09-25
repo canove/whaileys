@@ -9,6 +9,7 @@ import {
   ParticipantAction,
   SignalKeyStoreWithTransaction,
   SocketConfig,
+  WAMessage,
   WAMessageStubType
 } from "../Types";
 import {
@@ -119,7 +120,7 @@ const updateGroupMetadata = (
 };
 
 const processMessage = async (
-  message: proto.IWebMessageInfo,
+  message: WAMessage,
   {
     shouldProcessHistoryMsg,
     ev,
@@ -279,6 +280,18 @@ const processMessage = async (
             }
           }
         }
+
+        break;
+      case proto.Message.ProtocolMessage.Type.SHARE_PHONE_NUMBER:
+        ev.emit("chats.phoneNumberShare", {
+          lid: message.key.senderLid!,
+          jid: message.key.senderPn!
+        });
+
+        ev.emit("contacts.phone-number-share", {
+          lid: message.key.senderLid!,
+          jid: message.key.senderPn!
+        });
 
         break;
     }

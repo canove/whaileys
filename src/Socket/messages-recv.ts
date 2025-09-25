@@ -818,17 +818,6 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 
           cleanMessage(msg, authState.creds.me!.id);
 
-          if (
-            msg.message?.protocolMessage?.type ===
-              proto.Message.ProtocolMessage.Type.SHARE_PHONE_NUMBER &&
-            node.attrs.sender_pn
-          ) {
-            ev.emit("chats.phoneNumberShare", {
-              lid: node.attrs.from,
-              jid: node.attrs.sender_pn
-            });
-          }
-
           await upsertMessage(msg, node.attrs.offline ? "append" : "notify");
         })
       ]);

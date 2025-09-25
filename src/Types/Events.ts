@@ -32,6 +32,7 @@ export type BaileysEventMap = {
   "chats.upsert": Chat[];
   /** update the given chats */
   "chats.update": ChatUpdate[];
+  /** @deprecated Use contacts.phone-number-share instead */
   "chats.phoneNumberShare": { lid: string; jid: string };
   /** delete chats with given ID */
   "chats.delete": string[];
@@ -43,6 +44,8 @@ export type BaileysEventMap = {
 
   "contacts.upsert": Contact[];
   "contacts.update": Partial<Contact>[];
+  /** contact decided to share his phone number that was hidden */
+  "contacts.phone-number-share": { lid: string; jid: string };
 
   "messages.delete": { keys: WAMessageKey[] } | { jid: string; all: true };
   "messages.update": WAMessageUpdate[];
