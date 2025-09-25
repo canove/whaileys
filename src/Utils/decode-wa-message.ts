@@ -45,6 +45,14 @@ export const decodeMessageStanza = (
     ? stanza.attrs.from
     : stanza.attrs.sender_lid;
 
+  const participantPn = isJidUser(stanza.attrs.participant)
+    ? stanza.attrs.participan
+    : stanza.attrs.participant_pn;
+
+  const participantLid = isLidUser(stanza.attrs.participant)
+    ? stanza.attrs.participant
+    : stanza.attrs.participant_lid;
+
   const msgId = stanza.attrs.id;
   const from = senderPn || stanza.attrs.from;
   const participant: string | undefined = stanza.attrs.participant;
@@ -112,8 +120,8 @@ export const decodeMessageStanza = (
     senderLid,
     senderPn,
     participant,
-    participantPn: stanza?.attrs?.participant_pn,
-    participantLid: stanza?.attrs?.participant_lid
+    participantPn,
+    participantLid
   };
 
   const fullMessage: WAMessage = {
