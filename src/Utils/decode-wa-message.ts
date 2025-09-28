@@ -108,7 +108,7 @@ export const decodeMessageStanza = (
 
   const sender = msgType === "chat" ? author : chatId;
 
-  const fromMe = (isLidUser(from) ? isMeLid : isMe)(
+  const fromMe = (isLidUser(from) || isLidUser(participant) ? isMeLid : isMe)(
     stanza.attrs.participant || stanza.attrs.from
   );
   const pushname = stanza.attrs.notify;
