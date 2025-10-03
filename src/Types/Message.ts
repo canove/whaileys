@@ -80,6 +80,10 @@ type Mentionable = {
   /** list of jids that are mentioned in the accompanying text */
   mentions?: string[];
 };
+type Contextable = {
+	/** add contextInfo to the message */
+	contextInfo?: proto.IContextInfo
+};
 type ViewOnce = {
   viewOnce?: boolean;
 };
@@ -122,6 +126,7 @@ export type AnyMediaMessageContent = (
       caption?: string;
       jpegThumbnail?: string;
     } & Mentionable &
+      Contextable &
       Buttonable &
       Templatable &
       WithDimensions)
@@ -131,6 +136,7 @@ export type AnyMediaMessageContent = (
       gifPlayback?: boolean;
       jpegThumbnail?: string;
     } & Mentionable &
+      Contextable &
       Buttonable &
       Templatable &
       WithDimensions)
@@ -150,6 +156,7 @@ export type AnyMediaMessageContent = (
       mimetype: string;
       fileName?: string;
     } & Buttonable &
+      Contextable &
       Templatable)
 ) & { mimetype?: string } & Editable;
 
@@ -171,6 +178,7 @@ export type AnyRegularMessageContent = (
       text: string;
       linkPreview?: WAUrlInfo | null;
     } & Mentionable &
+      Contextable &
       Buttonable &
       Templatable &
       Listable &
