@@ -81,8 +81,8 @@ type Mentionable = {
   mentions?: string[];
 };
 type Contextable = {
-	/** add contextInfo to the message */
-	contextInfo?: proto.IContextInfo
+  /** add contextInfo to the message */
+  contextInfo?: proto.IContextInfo;
 };
 type ViewOnce = {
   viewOnce?: boolean;
