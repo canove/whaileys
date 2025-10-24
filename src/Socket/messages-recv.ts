@@ -851,16 +851,12 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
   };
 
   const requestPlaceholderResend = async (
-    messageKey: WAMessageKey
+    messageKeys: { messageKey: WAMessageKey }[]
   ): Promise<string> => {
     if (!authState.creds.me?.id) throw new Boom("Not authenticated");
 
     const pdoMessage = {
-      placeholderMessageResendRequest: [
-        {
-          messageKey
-        }
-      ],
+      placeholderMessageResendRequest: messageKeys,
       peerDataOperationRequestType:
         proto.Message.PeerDataOperationRequestType.PLACEHOLDER_MESSAGE_RESEND
     };
