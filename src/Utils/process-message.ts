@@ -264,22 +264,25 @@ const processMessage = async (
       case proto.Message.ProtocolMessage.Type
         .PEER_DATA_OPERATION_REQUEST_RESPONSE_MESSAGE:
         const response = protocolMsg.peerDataOperationRequestResponseMessage!;
-        if (response) {
-          const { peerDataOperationResult } = response;
-          for (const result of peerDataOperationResult!) {
-            const { placeholderMessageResendResponse: retryResponse } = result;
-            if (retryResponse) {
-              const webMessageInfo = proto.WebMessageInfo.decode(
-                retryResponse.webMessageInfoBytes!
-              );
 
-              ev.emit("messages.upsert", {
-                messages: [webMessageInfo],
-                type: "notify"
-              });
-            }
-          }
-        }
+        if (!response?.peerDataOperationResult) break;
+
+        const { peerDataOperationResult } = response;
+
+        const responseMessages = peerDataOperationResult
+          .map(result => {
+            const responseBytes =
+              result.placeholderMessageResendResponse?.webMessageInfoBytes;
+
+            if (!responseBytes) return;
+
+            return proto.WebMessageInfo.decode(responseBytes);
+          })
+          .filter(Boolean);
+
+        ev.emit("messages.pdo-response", {
+          messages: responseMessages as WAMessage[]
+        });
 
         break;
       case proto.Message.ProtocolMessage.Type.SHARE_PHONE_NUMBER:
