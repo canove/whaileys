@@ -42,6 +42,7 @@ import {
   getBinaryNodeChildren,
   isJidGroup,
   isJidUser,
+  isLidUser,
   jidDecode,
   jidEncode,
   jidNormalizedUser,
@@ -555,7 +556,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
             "sender-key-memory": { [jid]: senderKeyMap }
           });
         }
-      } else {
+      } else if (!isRetryResend) {
         const { user: meUser } = jidDecode(meId)!;
         const { user: meLidUser } = jidDecode(meLid)!;
 
@@ -566,20 +567,18 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           }
         });
 
-        if (!participant) {
-          devices.push({ user });
-          devices.push({ user: meUser });
+        devices.push({ user });
+        devices.push({ user: meUser });
 
-          if (
-            !(additionalAttributes?.["category"] === "peer" && user === meUser)
-          ) {
-            const additionalDevices = await getUSyncDevices(
-              [meId, jid],
-              !!useUserDevicesCache,
-              true
-            );
-            devices.push(...additionalDevices);
-          }
+        if (
+          !(additionalAttributes?.["category"] === "peer" && user === meUser)
+        ) {
+          const additionalDevices = await getUSyncDevices(
+            [meId, jid],
+            !!useUserDevicesCache,
+            true
+          );
+          devices.push(...additionalDevices);
         }
 
         const allJids: string[] = [];
@@ -603,19 +602,17 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
         await assertSessions(allJids, false);
 
-        if (!isRetryResend) {
-          const [
-            { nodes: meNodes, shouldIncludeDeviceIdentity: s1 },
-            { nodes: otherNodes, shouldIncludeDeviceIdentity: s2 }
-          ] = await Promise.all([
-            createParticipantNodes(meJids, encodedMeMsg),
-            createParticipantNodes(otherJids, encodedMsg)
-          ]);
-          participants.push(...meNodes);
-          participants.push(...otherNodes);
+        const [
+          { nodes: meNodes, shouldIncludeDeviceIdentity: s1 },
+          { nodes: otherNodes, shouldIncludeDeviceIdentity: s2 }
+        ] = await Promise.all([
+          createParticipantNodes(meJids, encodedMeMsg),
+          createParticipantNodes(otherJids, encodedMsg)
+        ]);
+        participants.push(...meNodes);
+        participants.push(...otherNodes);
 
-          shouldIncludeDeviceIdentity = shouldIncludeDeviceIdentity || s1 || s2;
-        }
+        shouldIncludeDeviceIdentity = shouldIncludeDeviceIdentity || s1 || s2;
       }
 
       if (participants.length) {
@@ -634,9 +631,24 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       }
 
       if (isRetryResend) {
+        const isParticipantLid = isLidUser(participant!.jid);
+        const isMe = areJidsSameUser(
+          participant!.jid,
+          isParticipantLid ? meLid : meId
+        );
+
+        const encodedMessageToSend = isMe
+          ? encodeWAMessage({
+              deviceSentMessage: {
+                destinationJid,
+                message
+              }
+            })
+          : encodedMsg;
+
         const { type, ciphertext: encryptedContent } = await encryptSignalProto(
           participant!.jid,
-          encodedMsg,
+          encodedMessageToSend,
           authState
         );
 
