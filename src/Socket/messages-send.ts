@@ -544,20 +544,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           participants.push(...result.nodes);
         }
 
-        if (isRetryResend) {
-          const { type, ciphertext: encryptedContent } =
-            await encryptSignalProto(participant!.jid, encodedMsg, authState);
-
-          binaryNodeContent.push({
-            tag: "enc",
-            attrs: {
-              v: "2",
-              type,
-              count: participant!.count.toString()
-            },
-            content: encryptedContent
-          });
-        } else {
+        if (!isRetryResend) {
           binaryNodeContent.push({
             tag: "enc",
             attrs: { v: "2", type: "skmsg" },
@@ -616,17 +603,19 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
         await assertSessions(allJids, false);
 
-        const [
-          { nodes: meNodes, shouldIncludeDeviceIdentity: s1 },
-          { nodes: otherNodes, shouldIncludeDeviceIdentity: s2 }
-        ] = await Promise.all([
-          createParticipantNodes(meJids, encodedMeMsg),
-          createParticipantNodes(otherJids, encodedMsg)
-        ]);
-        participants.push(...meNodes);
-        participants.push(...otherNodes);
+        if (!isRetryResend) {
+          const [
+            { nodes: meNodes, shouldIncludeDeviceIdentity: s1 },
+            { nodes: otherNodes, shouldIncludeDeviceIdentity: s2 }
+          ] = await Promise.all([
+            createParticipantNodes(meJids, encodedMeMsg),
+            createParticipantNodes(otherJids, encodedMsg)
+          ]);
+          participants.push(...meNodes);
+          participants.push(...otherNodes);
 
-        shouldIncludeDeviceIdentity = shouldIncludeDeviceIdentity || s1 || s2;
+          shouldIncludeDeviceIdentity = shouldIncludeDeviceIdentity || s1 || s2;
+        }
       }
 
       if (participants.length) {
@@ -642,6 +631,24 @@ export const makeMessagesSocket = (config: SocketConfig) => {
             content: participants
           });
         }
+      }
+
+      if (isRetryResend) {
+        const { type, ciphertext: encryptedContent } = await encryptSignalProto(
+          participant!.jid,
+          encodedMsg,
+          authState
+        );
+
+        binaryNodeContent.push({
+          tag: "enc",
+          attrs: {
+            v: "2",
+            type,
+            count: participant!.count.toString()
+          },
+          content: encryptedContent
+        });
       }
 
       const stanza: BinaryNode = {
