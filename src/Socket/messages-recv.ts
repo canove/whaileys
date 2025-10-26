@@ -586,7 +586,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
         }
 
         await relayMessage(key.remoteJid!, msg, msgRelayOpts);
-        logger.info(
+        logger.debug(
           {
             jid: key.remoteJid,
             id: ids[i]

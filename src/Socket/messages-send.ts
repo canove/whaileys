@@ -404,6 +404,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
     const isGroup = server === "g.us";
     const isStatus = jid === statusJid;
     const isLid = server === "lid";
+    const isGroupOrStatus = isGroup || isStatus;
 
     msgId = msgId || generateMessageIDV2(sock.user?.id);
     useUserDevicesCache = useUserDevicesCache !== false;
@@ -434,7 +435,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
     }
 
     await authState.keys.transaction(async () => {
-      if (isGroup || isStatus) {
+      if (isGroupOrStatus && !isRetryResend) {
         const [groupData, senderKeyMap] = await Promise.all([
           (async () => {
             let groupData = groupMetadataCache?.get(jid) as
@@ -466,29 +467,27 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           })()
         ]);
 
-        if (!participant) {
-          const participantsList = groupData
-            ? groupData.participants.map(p => p.id)
-            : [];
+        const participantsList = groupData
+          ? groupData.participants.map(p => p.id)
+          : [];
 
-          if (groupData?.ephemeralDuration) {
-            additionalAttributes = {
-              ...additionalAttributes,
-              expiration: groupData.ephemeralDuration.toString()
-            };
-          }
-
-          if (isStatus && statusJidList) {
-            participantsList.push(...statusJidList);
-          }
-
-          const additionalDevices = await getUSyncDevices(
-            participantsList,
-            !!useUserDevicesCache,
-            false
-          );
-          devices.push(...additionalDevices);
+        if (groupData?.ephemeralDuration) {
+          additionalAttributes = {
+            ...additionalAttributes,
+            expiration: groupData.ephemeralDuration.toString()
+          };
         }
+
+        if (isStatus && statusJidList) {
+          participantsList.push(...statusJidList);
+        }
+
+        const additionalDevices = await getUSyncDevices(
+          participantsList,
+          !!useUserDevicesCache,
+          false
+        );
+        devices.push(...additionalDevices);
 
         if (isGroup) {
           additionalAttributes = {
@@ -545,17 +544,15 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           participants.push(...result.nodes);
         }
 
-        if (!isRetryResend) {
-          binaryNodeContent.push({
-            tag: "enc",
-            attrs: { v: "2", type: "skmsg" },
-            content: ciphertext
-          });
+        binaryNodeContent.push({
+          tag: "enc",
+          attrs: { v: "2", type: "skmsg" },
+          content: ciphertext
+        });
 
-          await authState.keys.set({
-            "sender-key-memory": { [jid]: senderKeyMap }
-          });
-        }
+        await authState.keys.set({
+          "sender-key-memory": { [jid]: senderKeyMap }
+        });
       } else if (!isRetryResend) {
         const { user: meUser } = jidDecode(meId)!;
         const { user: meLidUser } = jidDecode(meLid)!;
