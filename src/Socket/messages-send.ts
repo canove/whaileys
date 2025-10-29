@@ -336,9 +336,9 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       }
     };
 
-    const meJid = jidNormalizedUser(authState.creds.me.id);
+    const meLid = jidNormalizedUser(authState.creds.me.lid);
 
-    const msgId = await relayMessage(meJid, protocolMessage, {
+    const msgId = await relayMessage(meLid, protocolMessage, {
       additionalAttributes: {
         category: "peer",
         // eslint-disable-next-line camelcase
@@ -531,8 +531,8 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         });
       } else if (!isRetryResend) {
         const { user } = jidDecode(destinationJid)!;
-        const meUser = jidDecode(meId)?.user;
         const meLidUser = jidDecode(meLid)?.user;
+        const isMe = areJidsSameUser(user, meLidUser);
 
         const encodedMeMsg = encodeWAMessage({
           deviceSentMessage: {
@@ -541,10 +541,8 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           }
         });
 
-        // TODO entender quando cai aqui
-        if (additionalAttributes?.["category"] === "peer" && user === meUser) {
-          console.log("sera?");
-          devices.push({ user });
+        if (additionalAttributes?.["category"] === "peer" && isMe) {
+          devices.push({ user: meLidUser! });
         } else {
           const additionalDevices = await getUSyncDevices(
             [meId, jid],
