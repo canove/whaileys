@@ -14,6 +14,7 @@ export type JidServer =
 
 export type JidWithDevice = {
   user: string;
+  lid?: string;
   device?: number;
 };
 

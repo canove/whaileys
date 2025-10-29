@@ -10,7 +10,9 @@ import {
   isJidNewsletter,
   isJidStatusBroadcast,
   isJidUser,
-  isLidUser
+  isLidUser,
+  jidDecode,
+  jidEncode
 } from "../WABinary";
 import { unpadRandomMax16 } from "./generics";
 import {
@@ -52,10 +54,22 @@ export const decodeMessageStanza = (
   const participantLid = isLidUser(stanza.attrs.participant)
     ? stanza.attrs.participant
     : stanza.attrs.participant_lid;
+  console.log("🚀 ~ stanza.attrs:", stanza.attrs);
+
+  const isGroup = isJidGroup(stanza.attrs.from);
+
+  const userDevice = jidDecode(
+    isGroup ? stanza.attrs.participant : stanza.attrs.from
+  )?.device;
+
+  const userLid = jidDecode(isGroup ? participantLid : senderLid)?.user;
+  const fromLid = jidEncode(userLid!, "lid", userDevice);
 
   const msgId = stanza.attrs.id;
-  const from = senderPn || stanza.attrs.from;
-  const participant: string | undefined = stanza.attrs.participant;
+  const from = isGroup ? stanza.attrs.from : fromLid;
+  console.log("🚀 ~ from:", from);
+  console.log("🚀 ~ fromLid:", fromLid);
+  const participant: string | undefined = stanza.attrs.participant; // garantir que é sempre LID, mesmo se o addressingMode do grupo for PN
   const recipient: string | undefined = stanza.attrs.recipient;
 
   const isMe = (jid: string) => areJidsSameUser(jid, auth.creds.me!.id);

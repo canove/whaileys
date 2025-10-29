@@ -242,6 +242,10 @@ export const makeMessagesSocket = (config: SocketConfig) => {
                 {
                   tag: "devices",
                   attrs: { version: "2" }
+                },
+                {
+                  tag: "lid",
+                  attrs: {}
                 }
               ]
             },
@@ -436,6 +440,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
     await authState.keys.transaction(async () => {
       if (isGroupOrStatus && !isRetryResend) {
+        // TODO GARANTIR QUE SEMPRE USAMOS LID NOS GRUPOS TB
         const [groupData, senderKeyMap] = await Promise.all([
           (async () => {
             let groupData = groupMetadataCache?.get(jid) as
@@ -456,14 +461,8 @@ export const makeMessagesSocket = (config: SocketConfig) => {
             return groupData;
           })(),
           (async () => {
-            if (!participant) {
-              const result = await authState.keys.get("sender-key-memory", [
-                jid
-              ]);
-              return result[jid] || {};
-            }
-
-            return {};
+            const result = await authState.keys.get("sender-key-memory", [jid]);
+            return result[jid] || {};
           })()
         ]);
 
@@ -512,7 +511,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
             groupData?.addressingMode === "lid" ? "lid" : "s.whatsapp.net",
             device
           );
-          if (!senderKeyMap[jid] && !isRetryResend) {
+          if (!senderKeyMap[jid]) {
             senderKeyJids.push(jid);
             // store that this person has had the sender keys sent to them
             senderKeyMap[jid] = true;
@@ -564,48 +563,50 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           }
         });
 
-        devices.push({ user });
-        devices.push({ user: meUser });
+        // devices.push({ user });
+        // devices.push({ user: meUser, lid: meLidUser }); // TODO garantir que n vai dar merda em outros casos, sempre pegar do getUSyncDevices
+        console.log("🚀 ~ devices:", devices);
 
         if (
           !(additionalAttributes?.["category"] === "peer" && user === meUser)
         ) {
+          // TODO quando nao cair aqui? como vamos ter o LID?? so quando estiver enviando msg pra mim mesmo, ai posso usar o meu lid e pronto
           const additionalDevices = await getUSyncDevices(
             [meId, jid],
             !!useUserDevicesCache,
-            true
+            false
           );
           devices.push(...additionalDevices);
         }
 
-        const allJids: string[] = [];
-        const meJids: string[] = [];
-        const otherJids: string[] = [];
-        for (const { user, device } of devices) {
+        const allLids: string[] = [];
+        const meLids: string[] = [];
+        const otherLids: string[] = [];
+
+        for (const { user, device, lid } of devices) {
           const isMe = user === meUser;
-          const jid = jidEncode(
-            isMe && isLid && meLidUser ? meLidUser : user,
-            isLid ? "lid" : "s.whatsapp.net",
-            device
-          );
+
+          const encodedLid = jidEncode(isMe ? meLidUser : lid!, "lid", device);
+
           if (isMe) {
-            meJids.push(jid);
+            meLids.push(encodedLid);
           } else {
-            otherJids.push(jid);
+            otherLids.push(encodedLid);
           }
 
-          allJids.push(jid);
+          allLids.push(encodedLid);
         }
 
-        await assertSessions(allJids, false);
+        await assertSessions(allLids, false);
 
         const [
           { nodes: meNodes, shouldIncludeDeviceIdentity: s1 },
           { nodes: otherNodes, shouldIncludeDeviceIdentity: s2 }
         ] = await Promise.all([
-          createParticipantNodes(meJids, encodedMeMsg),
-          createParticipantNodes(otherJids, encodedMsg)
+          createParticipantNodes(meLids, encodedMeMsg),
+          createParticipantNodes(otherLids, encodedMsg)
         ]);
+
         participants.push(...meNodes);
         participants.push(...otherNodes);
 
