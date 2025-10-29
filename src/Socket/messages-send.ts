@@ -565,7 +565,6 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
         // devices.push({ user });
         // devices.push({ user: meUser, lid: meLidUser }); // TODO garantir que n vai dar merda em outros casos, sempre pegar do getUSyncDevices
-        console.log("🚀 ~ devices:", devices);
 
         if (
           !(additionalAttributes?.["category"] === "peer" && user === meUser)
