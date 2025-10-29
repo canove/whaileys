@@ -318,6 +318,7 @@ export const extractDeviceJids = (
         const { user } = jidDecode(item.attrs.jid)!;
         const devicesNode = getBinaryNodeChild(item, "devices");
         const lidNode = getBinaryNodeChild(item, "lid");
+        const lid = jidDecode(lidNode?.attrs?.val)?.user;
         const deviceListNode = getBinaryNodeChild(devicesNode, "device-list");
         if (Array.isArray(deviceListNode?.content)) {
           for (const { tag, attrs } of deviceListNode!.content) {
@@ -329,9 +330,8 @@ export const extractDeviceJids = (
               (device === 0 || !!attrs["key-index"]) // ensure that "key-index" is specified for "non-zero" devices, produces a bad req otherwise
             ) {
               extracted.push({
-                user,
-                device,
-                lid: lidNode?.attrs?.val?.split?.("@")?.[0]
+                user: lid || user,
+                device
               });
             }
           }

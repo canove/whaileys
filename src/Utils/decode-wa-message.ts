@@ -57,15 +57,24 @@ export const decodeMessageStanza = (
 
   const isGroup = isJidGroup(stanza.attrs.from);
 
-  const userDevice = jidDecode(stanza.attrs.from)?.device;
+  const userDevice = jidDecode(stanza.attrs.from)!.device;
   const userLid = jidDecode(senderLid)?.user;
 
-  const fromLid = jidEncode(userLid!, "lid", userDevice);
+  const participantDevice = jidDecode(stanza.attrs.participant)?.device;
+  const participantLidUser = jidDecode(participantLid)?.user;
 
+  const participantFullLid = jidEncode(
+    participantLidUser!,
+    "lid",
+    participantDevice
+  );
+  const userFullLid = jidEncode(userLid!, "lid", userDevice);
+
+  console.log("🚀 ~ stanza:", stanza);
   const msgId = stanza.attrs.id;
-  const from = isGroup ? stanza.attrs.from : fromLid;
-  const participant: string | undefined = stanza.attrs.participant; // TODO garantir que é sempre LID com device, mesmo se o addressingMode do grupo for PN
-  const recipient: string | undefined = stanza.attrs.recipient;
+  const from = isGroup ? stanza.attrs.from : userFullLid;
+  const participant = participantFullLid || stanza.attrs.participant;
+  const recipient = stanza.attrs.recipient;
 
   const isMe = (jid: string) => areJidsSameUser(jid, auth.creds.me!.id);
   const isMeLid = (jid: string) => areJidsSameUser(jid, auth.creds.me!.lid);
