@@ -411,31 +411,13 @@ export const makeMessagesSocket = (config: SocketConfig) => {
     msgId = msgId || generateMessageIDV2(sock.user?.id);
     useUserDevicesCache = useUserDevicesCache !== false;
 
-    const encodedMsg = encodeWAMessage(message);
-    const participants: BinaryNode[] = [];
-
     const destinationJid = isStatus ? "status@broadcast" : jid;
 
+    const participants: BinaryNode[] = [];
     const binaryNodeContent: BinaryNode[] = [];
-
     const devices: JidWithDevice[] = [];
 
-    // todo clean retry logic
-    if (participant) {
-      // when the retry request is not for a group
-      // only send to the specific device that asked for a retry
-      // otherwise the message is sent out to every device that should be a recipient
-      // TODO precisa?
-      if (!isGroup && !isStatus) {
-        additionalAttributes = {
-          ...additionalAttributes,
-          device_fanout: "false"
-        };
-      }
-
-      const { user, device } = jidDecode(participant.jid)!;
-      devices.push({ user, device }); // todo oq fazer?
-    }
+    const encodedMsg = encodeWAMessage(message);
 
     await authState.keys.transaction(async () => {
       if (isGroupOrStatus && !isRetryResend) {
@@ -486,7 +468,6 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           false
         );
         devices.push(...additionalDevices);
-        console.log("🚀 ~ additionalDevices:", additionalDevices);
 
         if (isGroup) {
           additionalAttributes = {
@@ -499,7 +480,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           await encryptSenderKeyMsgSignalProto(
             destinationJid,
             encodedMsg,
-            meId, // todo talvez usar o meLid aqui
+            meId,
             authState
           );
 
@@ -623,6 +604,33 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       }
 
       if (isRetryResend) {
+        // when the retry request is not for a group
+        // only send to the specific device that asked for a retry
+        // otherwise the message is sent out to every device that should be a recipient
+        // TODO testar se em grupo tá enviando pra todos os participantes no retry
+        if (!isGroup && !isStatus) {
+          additionalAttributes = {
+            ...additionalAttributes,
+            device_fanout: "false"
+          };
+        }
+
+        const participantDevice = jidDecode(participant!.jid)!.device;
+
+        const [{ user: participantLidUser }] = await getUSyncDevices(
+          [participant!.jid],
+          true,
+          false
+        );
+
+        const participantFulLid = jidEncode(
+          participantLidUser,
+          "lid",
+          participantDevice
+        );
+
+        await assertSessions([participantFulLid], true);
+
         const isParticipantLid = isLidUser(participant!.jid);
         const isMe = areJidsSameUser(
           participant!.jid,
@@ -639,7 +647,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           : encodedMsg;
 
         const { type, ciphertext: encryptedContent } = await encryptSignalProto(
-          participant!.jid,
+          participantFulLid,
           encodedMessageToSend,
           authState
         );
