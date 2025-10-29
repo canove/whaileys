@@ -560,11 +560,6 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     // prevents the first message decryption failure
     const sendToAll = !jidDecode(participant)?.device;
 
-    if (isJidGroup(remoteJid)) {
-      // TODO faz sentido? pq uma pessoa pediu retry apagar td?
-      await authState.keys.set({ "sender-key-memory": { [remoteJid]: null } });
-    }
-
     for (let i = 0; i < msgs.length; i++) {
       const msg = msgs[i];
       if (msg) {

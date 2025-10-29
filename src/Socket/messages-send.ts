@@ -607,7 +607,6 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         // when the retry request is not for a group
         // only send to the specific device that asked for a retry
         // otherwise the message is sent out to every device that should be a recipient
-        // TODO testar se em grupo tá enviando pra todos os participantes no retry
         if (!isGroup && !isStatus) {
           additionalAttributes = {
             ...additionalAttributes,
