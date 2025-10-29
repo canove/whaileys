@@ -630,6 +630,19 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
         await assertSessions([participantFulLid], true);
 
+        if (isGroup) {
+          const result = await authState.keys.get("sender-key-memory", [
+            destinationJid
+          ]);
+
+          const groupSenderKeyMap = result[destinationJid] || {};
+          groupSenderKeyMap[participantFulLid] = false;
+
+          await authState.keys.set({
+            "sender-key-memory": { [destinationJid]: groupSenderKeyMap }
+          });
+        }
+
         const isParticipantLid = isLidUser(participant!.jid);
         const isMe = areJidsSameUser(
           participant!.jid,
