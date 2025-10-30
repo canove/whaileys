@@ -421,7 +421,6 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
     await authState.keys.transaction(async () => {
       if (isGroupOrStatus && !isRetryResend) {
-        // TODO GARANTIR QUE SEMPRE USAMOS LID NOS GRUPOS TB
         const [groupData, senderKeyMap] = await Promise.all([
           (async () => {
             let groupData = groupMetadataCache?.get(jid) as
