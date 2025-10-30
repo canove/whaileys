@@ -42,10 +42,11 @@ export const decodeMessageStanza = (
 
   const meLidUser = jidDecode(auth.creds.me!.lid)?.user!;
 
-  const senderPn = isJidUser(stanza.attrs.from)
+  const senderPn = stanza.attrs.sender_lid
     ? stanza.attrs.from
     : stanza.attrs.sender_pn;
-  const senderLid = isLidUser(stanza.attrs.from)
+
+  const senderLid = stanza.attrs.sender_pn
     ? stanza.attrs.from
     : stanza.attrs.sender_lid;
 
@@ -74,11 +75,11 @@ export const decodeMessageStanza = (
       ? jidEncode(fromLidUser, "lid", fromDevice)
       : undefined;
 
-  console.log("🚀 ~ stanza:", stanza);
   const msgId = stanza.attrs.id;
   const from = fromFullLid || stanza.attrs.from;
   const participant = participantFullLid || stanza.attrs.participant;
-  const recipient = stanza.attrs.recipient; // TODO HANDLE MY OWN MESSAGES SENT FROM OTHER DEVICES peer_recipient_lid, recipient
+  const recipient = stanza.attrs.recipient;
+  const recipientLid = stanza.attrs.peer_recipient_lid;
 
   const isMe = (jid: string) => areJidsSameUser(jid, auth.creds.me!.id);
   const isMeLid = (jid: string) => areJidsSameUser(jid, auth.creds.me!.lid);
@@ -143,7 +144,8 @@ export const decodeMessageStanza = (
     senderPn,
     participant,
     participantPn,
-    participantLid
+    participantLid,
+    recipientLid
   };
 
   const fullMessage: WAMessage = {
