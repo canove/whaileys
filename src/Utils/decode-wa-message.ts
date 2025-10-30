@@ -40,6 +40,8 @@ export const decodeMessageStanza = (
   let chatId: string;
   let author: string;
 
+  const meLidUser = jidDecode(auth.creds.me!.lid)?.user!;
+
   const senderPn = isJidUser(stanza.attrs.from)
     ? stanza.attrs.from
     : stanza.attrs.sender_pn;
@@ -57,24 +59,26 @@ export const decodeMessageStanza = (
 
   const isGroup = isJidGroup(stanza.attrs.from);
 
-  const userDevice = jidDecode(stanza.attrs.from)!.device;
-  const userLid = jidDecode(senderLid)?.user;
+  const fromLidUser = jidDecode(senderLid)?.user;
+  const fromDevice = jidDecode(stanza.attrs.from)?.device;
 
-  const participantDevice = jidDecode(stanza.attrs.participant)?.device;
   const participantLidUser = jidDecode(participantLid)?.user;
+  const participantDevice = jidDecode(stanza.attrs.participant)?.device;
 
-  const participantFullLid = jidEncode(
-    participantLidUser!,
-    "lid",
-    participantDevice
-  );
-  const userFullLid = jidEncode(userLid!, "lid", userDevice);
+  const participantFullLid = participantLidUser
+    ? jidEncode(participantLidUser, "lid", participantDevice)
+    : undefined;
+
+  const fromFullLid =
+    !isGroup && fromLidUser
+      ? jidEncode(fromLidUser, "lid", fromDevice)
+      : undefined;
 
   console.log("🚀 ~ stanza:", stanza);
   const msgId = stanza.attrs.id;
-  const from = isGroup ? stanza.attrs.from : userFullLid;
+  const from = fromFullLid || stanza.attrs.from;
   const participant = participantFullLid || stanza.attrs.participant;
-  const recipient = stanza.attrs.recipient;
+  const recipient = stanza.attrs.recipient; // TODO HANDLE MY OWN MESSAGES SENT FROM OTHER DEVICES peer_recipient_lid, recipient
 
   const isMe = (jid: string) => areJidsSameUser(jid, auth.creds.me!.id);
   const isMeLid = (jid: string) => areJidsSameUser(jid, auth.creds.me!.lid);
@@ -93,7 +97,7 @@ export const decodeMessageStanza = (
     }
 
     msgType = "chat";
-    author = from;
+    author = isMe(from) ? jidEncode(meLidUser, "lid", fromDevice) : from;
   } else if (isJidGroup(from)) {
     if (!participant) {
       throw new Boom("No participant in group message");
