@@ -1,6 +1,6 @@
 {
   "name": "whaileys",
-  "version": "6.3.3",
+  "version": "6.3.4",
   "description": "WhatsApp API",
   "homepage": "https://github.com/canove/whaileys",
   "main": "lib/index.js",

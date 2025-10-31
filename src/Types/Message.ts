@@ -176,6 +176,10 @@ export type WASendableProduct = Omit<
   productImage: WAMediaUpload;
 };
 
+export type InteractiveMessageContent = {
+  interactiveMessage: proto.Message.IInteractiveMessage;
+};
+
 export type AnyRegularMessageContent = (
   | ({
       text: string;
@@ -207,6 +211,7 @@ export type AnyRegularMessageContent = (
       body?: string;
       footer?: string;
     }
+  | InteractiveMessageContent
   | RequestPhoneNumber
 ) &
   ViewOnce;
