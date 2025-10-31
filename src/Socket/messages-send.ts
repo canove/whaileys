@@ -387,6 +387,32 @@ export const makeMessagesSocket = (config: SocketConfig) => {
     return { nodes, shouldIncludeDeviceIdentity };
   };
 
+  const createButtonNode = (message: proto.IMessage) => {
+    if (message.listMessage) {
+      return [
+        {
+          tag: "list",
+          attrs: { type: "product_list", v: "2" }
+        }
+      ];
+    }
+
+    if (
+      message.buttonsMessage ||
+      message.interactiveMessage?.nativeFlowMessage
+    ) {
+      return [
+        {
+          tag: "interactive",
+          attrs: { type: "native_flow", v: "1" },
+          content: [{ tag: "native_flow", attrs: { v: "9", name: "mixed" } }]
+        }
+      ];
+    }
+
+    return null;
+  };
+
   const relayMessage = async (
     jid: string,
     message: proto.IMessage,
@@ -707,54 +733,24 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
         logger.debug({ jid }, "adding device identity");
       }
+
       const innerMessage =
         message.documentWithCaptionMessage?.message || message;
 
-      if (innerMessage.listMessage) {
+      const buttonContent = createButtonNode(innerMessage);
+
+      if (buttonContent) {
         (stanza.content as BinaryNode[]).push({
           tag: "biz",
           attrs: {},
-          content: [
-            {
-              tag: "list",
-              attrs: {
-                type: "product_list",
-                v: "2"
-              }
-            }
-          ]
+          content: buttonContent
         });
-        logger.debug({ jid }, "adding biz node for list message");
-      } else if (
-        innerMessage.buttonsMessage ||
-        innerMessage.interactiveMessage?.nativeFlowMessage
-      ) {
-        (stanza.content as BinaryNode[]).push({
-          tag: "biz",
-          attrs: {},
-          content: [
-            {
-              tag: "interactive",
-              attrs: {
-                type: "native_flow",
-                v: "1"
-              },
-              content: [
-                {
-                  tag: "native_flow",
-                  attrs: {
-                    v: "9",
-                    name: "mixed"
-                  }
-                }
-              ]
-            }
-          ]
-        });
-        logger.debug(
-          { jid },
-          "adding biz node for interactive/buttons message"
-        );
+
+        const type = innerMessage.listMessage
+          ? "list message"
+          : "interactive/buttons message";
+
+        logger.debug({ jid }, `adding biz node for ${type}`);
       }
 
       logger.debug(
