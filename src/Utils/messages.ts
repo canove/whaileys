@@ -366,6 +366,8 @@ export const generateWAMessageContent = async (
         };
         break;
     }
+  } else if ("interactiveMessage" in message) {
+    m.interactiveMessage = message.interactiveMessage;
   } else if ("product" in message) {
     const { imageMessage } = await prepareWAMessageMedia(
       { image: message.product.productImage },
@@ -926,14 +928,14 @@ const generateContextInfo = () => {
 export const patchMessageForMdIfRequired = (message: proto.IMessage) => {
   const requiresPatch = !!(
     message.buttonsMessage ||
-    // || message.templateMessage
-    message.listMessage
+    message.listMessage ||
+    message.interactiveMessage
   );
+
   if (requiresPatch) {
     message = {
-      viewOnceMessage: {
+      documentWithCaptionMessage: {
         message: {
-          messageContextInfo: generateContextInfo(),
           ...message
         }
       }
