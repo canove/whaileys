@@ -746,11 +746,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           content: buttonContent
         });
 
-        const type = innerMessage.listMessage
-          ? "list message"
-          : "interactive/buttons message";
-
-        logger.debug({ jid }, `adding biz node for ${type}`);
+        logger.debug({ jid }, `adding biz node for buttons message`);
       }
 
       logger.debug(
