@@ -40,7 +40,7 @@ export const decodeMessageStanza = (
   let chatId: string;
   let author: string;
 
-  const meLidUser = jidDecode(auth.creds.me!.lid)?.user!;
+  const meUser = jidDecode(auth.creds.me!.id)?.user!;
 
   const senderPn = stanza.attrs.sender_lid
     ? stanza.attrs.from
@@ -60,24 +60,24 @@ export const decodeMessageStanza = (
 
   const isGroup = isJidGroup(stanza.attrs.from);
 
-  const fromLidUser = jidDecode(senderLid)?.user;
+  const fromJidUser = jidDecode(senderPn)?.user;
   const fromDevice = jidDecode(stanza.attrs.from)?.device;
 
-  const participantLidUser = jidDecode(participantLid)?.user;
+  const participantJidUser = jidDecode(participantPn)?.user;
   const participantDevice = jidDecode(stanza.attrs.participant)?.device;
 
-  const participantFullLid = participantLidUser
-    ? jidEncode(participantLidUser, "lid", participantDevice)
+  const participantFullJid = participantJidUser
+    ? jidEncode(participantJidUser, "s.whatsapp.net", participantDevice)
     : undefined;
 
-  const fromFullLid =
-    !isGroup && fromLidUser
-      ? jidEncode(fromLidUser, "lid", fromDevice)
+  const fromFullJid =
+    !isGroup && fromJidUser
+      ? jidEncode(fromJidUser, "s.whatsapp.net", fromDevice)
       : undefined;
 
   const msgId = stanza.attrs.id;
-  const from = fromFullLid || stanza.attrs.from;
-  const participant = participantFullLid || stanza.attrs.participant;
+  const from = fromFullJid || stanza.attrs.from;
+  const participant = participantFullJid || stanza.attrs.participant;
   const recipient = stanza.attrs.recipient;
   const recipientLid = stanza.attrs.peer_recipient_lid;
 
@@ -98,21 +98,23 @@ export const decodeMessageStanza = (
     }
 
     msgType = "chat";
-    author = isMe(from) ? jidEncode(meLidUser, "lid", fromDevice) : from;
+    author = from;
   } else if (isJidGroup(from)) {
     if (!participant) {
       throw new Boom("No participant in group message");
     }
 
     msgType = "group";
-    author = participant;
     chatId = from;
+    author = isMeLid(participant)
+      ? jidEncode(meUser, "s.whatsapp.net", participantDevice)
+      : participant;
   } else if (isJidBroadcast(from)) {
     if (!participant) {
       throw new Boom("No participant in group message");
     }
 
-    const isParticipantMe = isMe(participant);
+    const isParticipantMe = isMe(participant) || isMeLid(participant);
     if (isJidStatusBroadcast(from)) {
       msgType = isParticipantMe ? "direct_peer_status" : "other_status";
     } else {
