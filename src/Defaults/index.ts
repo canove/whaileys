@@ -21,9 +21,15 @@ export const DEFAULT_CACHE_TTLS = {
 };
 
 export const NOISE_MODE = "Noise_XX_25519_AESGCM_SHA256\0\0\0\0";
-export const DICT_VERSION = 2;
+export const DICT_VERSION = 3;
 export const KEY_BUNDLE_TYPE = Buffer.from([5]);
 export const NOISE_WA_HEADER = Buffer.from([87, 65, 6, DICT_VERSION]); // last is "DICT_VERSION"
+
+// ADV signature prefixes (critical for pairing)
+export const WA_ADV_ACCOUNT_SIG_PREFIX = Buffer.from([6, 0]);
+export const WA_ADV_DEVICE_SIG_PREFIX = Buffer.from([6, 1]);
+export const WA_ADV_HOSTED_ACCOUNT_SIG_PREFIX = Buffer.from([6, 5]);
+export const WA_ADV_HOSTED_DEVICE_SIG_PREFIX = Buffer.from([6, 6]);
 /** from: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url */
 export const URL_REGEX =
   /[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)?/gi;
