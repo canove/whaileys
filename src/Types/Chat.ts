@@ -111,7 +111,11 @@ export type ChatModification =
       markRead: boolean;
       lastMessages: LastMessageList;
     }
-  | { delete: true; lastMessages: LastMessageList };
+  | { delete: true; lastMessages: LastMessageList }
+  | {
+      /** contact action (create/edit/remove contact in app state) */
+      contact: proto.SyncActionValue.IContactAction | null;
+    };
 
 export type InitialReceivedChatsState = {
   [jid: string]: {

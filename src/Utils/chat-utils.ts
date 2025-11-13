@@ -731,6 +731,17 @@ export const chatModificationToAppPatch = (
       apiVersion: 5,
       operation: OP.SET
     };
+  } else if ("contact" in mod) {
+    // send contact action (create/edit/remove contact in the application state)
+    patch = {
+      syncAction: {
+        contactAction: mod.contact || {}
+      },
+      index: ["contact", jid],
+      type: "critical_unblock_low",
+      apiVersion: 2,
+      operation: mod.contact ? OP.SET : OP.REMOVE
+    };
   } else if ("delete" in mod) {
     patch = {
       syncAction: {

@@ -807,7 +807,7 @@ export const makeChatsSocket = (config: SocketConfig) => {
     return props;
   };
 
-  /**
+   /**
    * modify a chat -- mark unread, read etc.
    * lastMessages must be sorted in reverse chronologically
    * requires the last messages till the last message received; required for archive & unread
@@ -817,13 +817,31 @@ export const makeChatsSocket = (config: SocketConfig) => {
     return appPatch(patch);
   };
 
-  /**
+   /**
+   * add or edit contacts in the device's address book via the app's status
+   */
+  const addOrEditContact = (
+    jid: string,
+    contact: proto.SyncActionValue.IContactAction
+  ) => {
+    return chatModify({ contact }, jid);
+  };
+
+   /**
+   * remove contact from device address book via app status.
+   */
+  const removeContact = (jid: string) => {
+    return chatModify({ contact: null }, jid);
+  };
+
+   /**
    * queries need to be fired on connection open
    * help ensure parity with WA Web
    * */
   const executeInitQueries = async () => {
     await Promise.all([fetchProps(), fetchBlocklist(), fetchPrivacySettings()]);
   };
+
 
   const upsertMessage = ev.createBufferedFunction(
     async (msg: WAMessage, type: MessageUpsertType) => {
@@ -963,6 +981,8 @@ export const makeChatsSocket = (config: SocketConfig) => {
     updateBlockStatus,
     getBusinessProfile,
     resyncAppState,
+	addOrEditContact,
+    removeContact,
     chatModify
   };
 };
