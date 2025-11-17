@@ -71,6 +71,7 @@ export type SignalDataTypeMap = {
   session: any;
   "sender-key": any;
   "sender-key-memory": { [jid: string]: boolean };
+  "contacts-tc-token": { token: Buffer };
   "app-state-sync-key": proto.Message.IAppStateSyncKeyData;
   "app-state-sync-version": LTHashState;
 };

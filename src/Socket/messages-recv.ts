@@ -503,10 +503,43 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
         ev.emit("creds.update", authState.creds);
 
         break;
+      case "privacy_token":
+        await handlePrivacyTokenNotification(node);
+        break;
     }
 
     if (Object.keys(result).length) {
       return result;
+    }
+  };
+
+  const handlePrivacyTokenNotification = async (node: BinaryNode) => {
+    const tokensNode = getBinaryNodeChild(node, "tokens");
+    const from = jidNormalizedUser(node.attrs.from);
+
+    if (!tokensNode) return;
+
+    const tokenNodes = getBinaryNodeChildren(tokensNode, "token");
+
+    for (const tokenNode of tokenNodes) {
+      const { attrs, content } = tokenNode;
+      const type = attrs.type;
+      const timestamp = attrs.t;
+
+      if (type === "trusted_contact" && content instanceof Buffer) {
+        logger.debug(
+          {
+            from,
+            timestamp,
+            tcToken: content
+          },
+          "received trusted contact token"
+        );
+
+        await authState.keys.set({
+          "contacts-tc-token": { [from]: { token: content } }
+        });
+      }
     }
   };
 
@@ -901,26 +934,29 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     // it means -- the message hasn't reached all devices yet
     // we'll retry sending the message here
     // DISABLED DUE TO LOOP IN GROUPS CAUSING BAN, SHOULD BE RE-ENABLED IF SOME DEVICES NOT GET THE MESSAGE ON 1x1 CHATS
-    // if (attrs.phash) {
-    //   logger.info({ attrs }, "received phash in ack, resending message...");
-    //   const key: WAMessageKey = {
-    //     remoteJid: attrs.from,
-    //     fromMe: true,
-    //     id: attrs.id
-    //   };
-    //   const msg = await getMessage(key);
-    //   if (msg) {
-    //     await relayMessage(key.remoteJid!, msg, {
-    //       messageId: key.id!,
-    //       useUserDevicesCache: false
-    //     });
-    //   } else {
-    //     logger.warn(
-    //       { attrs },
-    //       "could not send message again, as it was not found"
-    //     );
-    //   }
-    // }
+    if (attrs.error === "475" && !isJidGroup(attrs.from)) {
+      logger.error({ attrs }, "received 475 error in ack");
+      // const key: WAMessageKey = {
+      //   remoteJid: attrs.from,
+      //   fromMe: true,
+      //   id: attrs.id
+      // };
+      // const msg =
+      //   ((await sentMessagesCache?.get(key.id!)) as
+      //     | proto.IMessage
+      //     | undefined) || (await getMessage(key));
+
+      // TODO ENABLE?
+      // if (msg) {
+      //   await relayMessage(key.remoteJid!, msg, {
+      //     messageId: key.id!,
+      //     useUserDevicesCache: false,
+      //     additionalAttributes: {
+      //       device_fanout: "false"
+      //     }
+      //   });
+      // }
+    }
   };
 
   const flushBufferIfLastOfflineNode = (
@@ -967,12 +1003,11 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     );
   });
 
-  // DISABLED DUE TO LOOP IN GROUPS CAUSING BAN, SHOULD BE RE-ENABLED IF SOME DEVICES NOT GET THE MESSAGE ON 1x1 CHATS
-  // ws.on("CB:ack,class:message", (node: BinaryNode) => {
-  //   handleBadAck(node).catch(error =>
-  //     onUnexpectedError(error, "handling bad ack")
-  //   );
-  // });
+  ws.on("CB:ack,class:message", (node: BinaryNode) => {
+    handleBadAck(node).catch(error =>
+      onUnexpectedError(error, "handling bad ack")
+    );
+  });
 
   ev.on("call", ([call]) => {
     // missed call + group call notification message generation
