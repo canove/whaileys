@@ -537,7 +537,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
         );
 
         await authState.keys.set({
-          "contacts-tc-token": { [from]: { token: content } }
+          "contacts-tc-token": { [from]: { token: content, timestamp } }
         });
       }
     }

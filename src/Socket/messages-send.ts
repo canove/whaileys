@@ -555,7 +555,6 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       } else if (!isRetryResend) {
         const { user } = jidDecode(destinationJid)!;
         const meUser = jidDecode(meId)?.user;
-        const isMe = areJidsSameUser(user, meUser);
 
         const encodedMeMsg = encodeWAMessage({
           deviceSentMessage: {
@@ -564,8 +563,8 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           }
         });
 
-        if (additionalAttributes?.["category"] === "peer" && isMe) {
-          devices.push({ user: meUser! });
+        if (additionalAttributes?.["category"] === "peer" && user === meUser) {
+          devices.push({ user: meUser });
         } else {
           const additionalDevices = await getUSyncDevices(
             [meId, jid],
@@ -718,12 +717,12 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         logger.debug({ jid }, "adding device identity");
       }
 
-      const contactTcToken =
+      const contactTcTokenData =
         !isGroup && !isRetryResend && !isStatus
           ? await authState.keys.get("contacts-tc-token", [destinationJid])
           : {};
 
-      const tcTokenBuffer = contactTcToken[destinationJid]?.token;
+      const tcTokenBuffer = contactTcTokenData[destinationJid]?.token;
 
       if (tcTokenBuffer) {
         (stanza.content as BinaryNode[]).push({

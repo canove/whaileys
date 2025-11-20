@@ -78,8 +78,10 @@ export const decodeMessageStanza = (
   const msgId = stanza.attrs.id;
   const from = fromFullJid || stanza.attrs.from;
   const participant = participantFullJid || stanza.attrs.participant;
-  const recipient = stanza.attrs.recipient;
-  const recipientLid = stanza.attrs.peer_recipient_lid;
+  const recipient = stanza.attrs.peer_recipient_pn || stanza.attrs.recipient;
+  const recipientLid = isLidUser(stanza.attrs.recipient)
+    ? stanza.attrs.recipient
+    : stanza.attrs.peer_recipient_lid;
 
   const isMe = (jid: string) => areJidsSameUser(jid, auth.creds.me!.id);
   const isMeLid = (jid: string) => areJidsSameUser(jid, auth.creds.me!.lid);
