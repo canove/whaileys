@@ -498,8 +498,17 @@ export const makeSocket = ({
     );
   };
 
-  const requestPairingCode = async (phoneNumber: string): Promise<string> => {
-    authState.creds.pairingCode = bytesToCrockford(randomBytes(5));
+  const requestPairingCode = async (
+    phoneNumber: string,
+    customPairingCode?: string
+  ): Promise<string> => {
+    const pairingCode = customPairingCode ?? bytesToCrockford(randomBytes(5));
+
+    if (customPairingCode && customPairingCode?.length !== 8) {
+      throw new Boom("Custom pairing code must be exactly 8 chars");
+    }
+
+    authState.creds.pairingCode = pairingCode;
     authState.creds.me = {
       id: jidEncode(phoneNumber, "s.whatsapp.net"),
       name: "~"
