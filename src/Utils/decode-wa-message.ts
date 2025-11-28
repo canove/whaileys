@@ -40,7 +40,7 @@ export const decodeMessageStanza = (
   let chatId: string;
   let author: string;
 
-  const meUser = jidDecode(auth.creds.me!.id)?.user!;
+  const meLidUser = jidDecode(auth.creds.me!.lid)?.user!;
 
   const senderPn = stanza.attrs.sender_lid
     ? stanza.attrs.from
@@ -60,25 +60,25 @@ export const decodeMessageStanza = (
 
   const isGroup = isJidGroup(stanza.attrs.from);
 
-  const fromJidUser = jidDecode(senderPn)?.user;
+  const fromLidUser = jidDecode(senderLid)?.user;
   const fromDevice = jidDecode(stanza.attrs.from)?.device;
 
-  const participantJidUser = jidDecode(participantPn)?.user;
+  const participantLidUser = jidDecode(participantLid)?.user;
   const participantDevice = jidDecode(stanza.attrs.participant)?.device;
 
-  const participantFullJid = participantJidUser
-    ? jidEncode(participantJidUser, "s.whatsapp.net", participantDevice)
+  const participantFullLid = participantLidUser
+    ? jidEncode(participantLidUser, "lid", participantDevice)
     : undefined;
 
-  const fromFullJid =
-    !isGroup && fromJidUser
-      ? jidEncode(fromJidUser, "s.whatsapp.net", fromDevice)
+  const fromFullLid =
+    !isGroup && fromLidUser
+      ? jidEncode(fromLidUser, "lid", fromDevice)
       : undefined;
 
   const msgId = stanza.attrs.id;
-  const from = fromFullJid || stanza.attrs.from;
-  const participant = participantFullJid || stanza.attrs.participant;
-  const recipient = stanza.attrs.peer_recipient_pn || stanza.attrs.recipient;
+  const from = fromFullLid || stanza.attrs.from;
+  const participant = participantFullLid || stanza.attrs.participant;
+  const recipient = stanza.attrs.peer_recipient_lid || stanza.attrs.recipient;
   const recipientLid = isLidUser(stanza.attrs.recipient)
     ? stanza.attrs.recipient
     : stanza.attrs.peer_recipient_lid;
@@ -108,8 +108,8 @@ export const decodeMessageStanza = (
 
     msgType = "group";
     chatId = from;
-    author = isMeLid(participant)
-      ? jidEncode(meUser, "s.whatsapp.net", participantDevice)
+    author = isMe(participant)
+      ? jidEncode(meLidUser, "lid", participantDevice)
       : participant;
   } else if (isJidBroadcast(from)) {
     if (!participant) {

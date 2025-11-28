@@ -332,9 +332,9 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       }
     };
 
-    const meJid = jidNormalizedUser(authState.creds.me.id);
+    const meLid = jidNormalizedUser(authState.creds.me.lid);
 
-    const msgId = await relayMessage(meJid, protocolMessage, {
+    const msgId = await relayMessage(meLid, protocolMessage, {
       additionalAttributes: {
         category: "peer",
         push_priority: "high_force"
@@ -420,6 +420,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
     }: MessageRelayOptions
   ) => {
     const meId = authState.creds.me!.id;
+    const meLid = authState.creds.me!.lid!;
     const isRetryResend = Boolean(participant?.jid);
 
     let shouldIncludeDeviceIdentity = isRetryResend;
@@ -467,7 +468,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         ]);
 
         const participantsList = groupData
-          ? groupData.participants.map(p => p.id)
+          ? groupData.participants.map(p => p.lid || p.id)
           : [];
 
         if (groupData?.ephemeralDuration) {
@@ -555,6 +556,9 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       } else if (!isRetryResend) {
         const { user } = jidDecode(destinationJid)!;
         const meUser = jidDecode(meId)?.user;
+        const meLidUser = jidDecode(meLid)?.user;
+        const isPeerMsg = user === meUser || user === meLidUser;
+        const isDestinationLid = isLidUser(destinationJid);
 
         const encodedMeMsg = encodeWAMessage({
           deviceSentMessage: {
@@ -563,11 +567,11 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           }
         });
 
-        if (additionalAttributes?.["category"] === "peer" && user === meUser) {
-          devices.push({ user: meUser });
+        if (additionalAttributes?.["category"] === "peer" && isPeerMsg) {
+          devices.push({ user });
         } else {
           const additionalDevices = await getUSyncDevices(
-            [meId, jid],
+            [isDestinationLid ? meLid : meId, jid],
             !!useUserDevicesCache,
             false
           );
