@@ -834,6 +834,77 @@ export const makeChatsSocket = (config: SocketConfig) => {
     return chatModify({ contact: null }, jid);
   };
 
+  const addChatLabel = (jid: string, labelId: string) => {
+    return chatModify(
+      {
+        addChatLabel: {
+          labelId
+        }
+      },
+      jid
+    );
+  };
+
+  const removeChatLabel = (jid: string, labelId: string) => {
+    return chatModify(
+      {
+        removeChatLabel: {
+          labelId
+        }
+      },
+      jid
+    );
+  };
+
+  const addMessageLabel = (jid: string, messageId: string, labelId: string) => {
+    return chatModify(
+      {
+        addMessageLabel: {
+          labelId,
+          messageId
+        }
+      },
+      jid
+    );
+  };
+
+  const removeMessageLabel = (
+    jid: string,
+    messageId: string,
+    labelId: string
+  ) => {
+    return chatModify(
+      {
+        removeMessageLabel: {
+          labelId,
+          messageId
+        }
+      },
+      jid
+    );
+  };
+
+  const addLabel = (
+    labelId: string,
+    name: string,
+    color: number = 0,
+    predefinedId: number = 0,
+    deleted: boolean = false
+  ) => {
+    return chatModify(
+      {
+        addLabel: {
+          name,
+          color,
+          predefinedId,
+          deleted,
+          id: labelId
+        }
+      },
+      ""
+    );
+  };
+
   /**
    * queries need to be fired on connection open
    * help ensure parity with WA Web
@@ -982,6 +1053,11 @@ export const makeChatsSocket = (config: SocketConfig) => {
     resyncAppState,
     addOrEditContact,
     removeContact,
-    chatModify
+    chatModify,
+    addChatLabel,
+    removeChatLabel,
+    addMessageLabel,
+    removeMessageLabel,
+    addLabel
   };
 };

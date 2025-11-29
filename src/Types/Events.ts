@@ -2,7 +2,13 @@ import type { Boom } from "@hapi/boom";
 import { proto } from "../../WAProto";
 import { AuthenticationCreds } from "./Auth";
 import { WACallEvent } from "./Call";
-import { Chat, ChatUpdate, PresenceData } from "./Chat";
+import {
+  Chat,
+  ChatUpdate,
+  Label,
+  LabelAssociation,
+  PresenceData
+} from "./Chat";
 import { Contact } from "./Contact";
 import { GroupMetadata, ParticipantAction } from "./GroupMetadata";
 import {
@@ -81,6 +87,11 @@ export type BaileysEventMap = {
   "blocklist.update": { blocklist: string[]; type: "add" | "remove" };
   /** Receive an update on a call, including when the call was received, rejected, accepted */
   call: WACallEvent[];
+  "labels.edit": Label;
+  "labels.association": {
+    association: LabelAssociation;
+    type: "add" | "remove";
+  };
 };
 
 export type BufferedEventData = {
