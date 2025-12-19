@@ -143,17 +143,20 @@ export function sha256(buffer: Buffer) {
 }
 
 // HKDF key expansion
-export function hkdf(
+export const hkdf = (
   buffer: Uint8Array | Buffer,
   expandedLength: number,
-  info: { salt?: Buffer; info?: string }
-) {
-  return HKDF(
-    !Buffer.isBuffer(buffer) ? Buffer.from(buffer) : buffer,
-    expandedLength,
-    info
-  );
-}
+  params: { salt?: Buffer; info?: Buffer | string }
+) => {
+  const key = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+
+  const normalized =
+    params.info && Buffer.isBuffer(params.info)
+      ? { ...params, info: params.info.toString("latin1") }
+      : params;
+
+  return HKDF(key, expandedLength, normalized);
+};
 
 export async function derivePairingCodeKey(pairingCode: string, salt: Buffer) {
   return await pbkdf2Promise(pairingCode, salt, 2 << 16, 32, "sha256");
