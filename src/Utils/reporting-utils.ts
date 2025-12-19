@@ -222,9 +222,9 @@ const WIRE = {
 type FieldBytes = { num: number; bytes: Buffer };
 
 /**
- * Retorna:
- * - Buffer (pode ser length 0) => parsing ok
- * - null => erro de parsing (wire inválido/truncado)
+ * Returns:
+ * - Buffer (can be length 0) => parsing ok
+ * - null => parsing error (invalid/truncated wire)
  */
 const extractReportingTokenContent = (
   data: Buffer,

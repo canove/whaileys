@@ -774,7 +774,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
         if (reportingNode) {
           (stanza.content as BinaryNode[]).push(reportingNode);
-          logger.info({ jid }, "added reporting token to message");
+          logger.trace({ jid }, "added reporting token to message");
         }
       }
 
