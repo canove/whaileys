@@ -752,8 +752,9 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       }
 
       if (
+        !isRetryResend &&
         shouldIncludeReportingToken(message) &&
-        message.messageContextInfo?.messageSecret // TODO always send reporting?
+        message.messageContextInfo?.messageSecret
       ) {
         const reportingKey: WAMessageKey = {
           id: msgId,
