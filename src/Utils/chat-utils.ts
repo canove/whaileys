@@ -10,6 +10,7 @@ import {
   ChatUpdate,
   Contact,
   InitialAppStateSyncOptions,
+  LabelAssociationType,
   LastMessageList,
   LTHashState,
   WAPatchCreate,
@@ -766,6 +767,83 @@ export const chatModificationToAppPatch = (
       apiVersion: 1,
       operation: OP.SET
     };
+  } else if ("addLabel" in mod) {
+    patch = {
+      syncAction: {
+        labelEditAction: {
+          name: mod.addLabel.name,
+          color: mod.addLabel.color,
+          predefinedId: mod.addLabel.predefinedId,
+          deleted: mod.addLabel.deleted
+        }
+      },
+      index: ["label_edit", mod.addLabel.id],
+      type: "regular",
+      apiVersion: 3,
+      operation: OP.SET
+    };
+  } else if ("addChatLabel" in mod) {
+    patch = {
+      syncAction: {
+        labelAssociationAction: {
+          labeled: true
+        }
+      },
+      index: [LabelAssociationType.Chat, mod.addChatLabel.labelId, jid],
+      type: "regular",
+      apiVersion: 3,
+      operation: OP.SET
+    };
+  } else if ("removeChatLabel" in mod) {
+    patch = {
+      syncAction: {
+        labelAssociationAction: {
+          labeled: false
+        }
+      },
+      index: [LabelAssociationType.Chat, mod.removeChatLabel.labelId, jid],
+      type: "regular",
+      apiVersion: 3,
+      operation: OP.SET
+    };
+  } else if ("addMessageLabel" in mod) {
+    patch = {
+      syncAction: {
+        labelAssociationAction: {
+          labeled: true
+        }
+      },
+      index: [
+        LabelAssociationType.Message,
+        mod.addMessageLabel.labelId,
+        jid,
+        mod.addMessageLabel.messageId,
+        "0",
+        "0"
+      ],
+      type: "regular",
+      apiVersion: 3,
+      operation: OP.SET
+    };
+  } else if ("removeMessageLabel" in mod) {
+    patch = {
+      syncAction: {
+        labelAssociationAction: {
+          labeled: false
+        }
+      },
+      index: [
+        LabelAssociationType.Message,
+        mod.removeMessageLabel.labelId,
+        jid,
+        mod.removeMessageLabel.messageId,
+        "0",
+        "0"
+      ],
+      type: "regular",
+      apiVersion: 3,
+      operation: OP.SET
+    };
   } else {
     throw new Boom("not supported");
   }
@@ -903,6 +981,39 @@ export const processSyncAction = (
   } else if (action?.deleteChatAction || type === "deleteChat") {
     if (!isInitialSync) {
       ev.emit("chats.delete", [id]);
+    }
+  } else if (action?.labelEditAction) {
+    const labelId = syncAction.index[1];
+    ev.emit("labels.edit", {
+      id: labelId,
+      name: action.labelEditAction.name!,
+      color: action.labelEditAction.color!,
+      predefinedId: action.labelEditAction.predefinedId!,
+      deleted: action.labelEditAction.deleted!
+    });
+  } else if (action?.labelAssociationAction) {
+    const type = syncAction.index[0] as LabelAssociationType;
+    let association: any;
+    if (type === LabelAssociationType.Chat) {
+      association = {
+        type: LabelAssociationType.Chat,
+        labelId: syncAction.index[1],
+        chatId: syncAction.index[2]
+      };
+    } else if (type === LabelAssociationType.Message) {
+      association = {
+        type: LabelAssociationType.Message,
+        labelId: syncAction.index[1],
+        chatId: syncAction.index[2],
+        messageId: syncAction.index[3]
+      };
+    }
+
+    if (association) {
+      ev.emit("labels.association", {
+        association,
+        type: action.labelAssociationAction.labeled ? "add" : "remove"
+      });
     }
   } else {
     logger?.debug({ syncAction, id }, "unprocessable update");

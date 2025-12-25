@@ -99,6 +99,10 @@ const startSock = async () => {
           }
         }
 
+        if (connection === 'open') {
+          console.log('opened connection')
+        }
+
         console.log('connection update', update)
       }
 
@@ -176,6 +180,14 @@ const startSock = async () => {
 
       if (events['chats.delete']) {
         console.log('chats deleted ', events['chats.delete'])
+      }
+
+      if (events['labels.edit']) {
+        console.log('labels edited', events['labels.edit'])
+      }
+
+      if (events['labels.association']) {
+        console.log('labels association', events['labels.association'])
       }
     }
   )

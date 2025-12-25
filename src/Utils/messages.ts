@@ -52,7 +52,7 @@ type MediaUploadData = {
   mimetype?: string;
   width?: number;
   height?: number;
-  waveform?: Uint8Array | null;
+  waveform?: string | Uint8Array | null;
 };
 
 const MIMETYPE_MAP: { [T in MediaType]?: string } = {
@@ -188,6 +188,8 @@ export const prepareWAMessageMedia = async (
     logger?.debug("computed audio duration");
   }
 
+  console.log("🚀 ~ requiresWaveformProcessing:", requiresWaveformProcessing);
+  console.log("🚀 ~ uploadData.waveform:", uploadData.waveform);
   if (requiresWaveformProcessing && originalFilePath) {
     uploadData.waveform = await getAudioWaveform(originalFilePath, logger);
     if (uploadData.waveform) {
