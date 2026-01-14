@@ -67,6 +67,11 @@ export type SocketConfig = {
   linkPreviewImageThumbnailWidth: number;
   /** Should Baileys ask the phone for full history, will be received async */
   syncFullHistory: boolean;
+  /**
+   * On 475 ack error (received when trying to send message to contacts that not messaged you yet, on limited connections, without tcToken on message payload),
+   * should Baileys resend the message with device_fanout set to false?
+   */
+  shouldResendMessageOn475AckError?: boolean;
   /** Should baileys fire init queries automatically, default true */
   fireInitQueries: boolean;
   /**
