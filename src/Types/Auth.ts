@@ -44,7 +44,7 @@ export type AccountSettings = {
 
 export type AuthenticationCreds = SignalCreds & {
   readonly noiseKey: KeyPair;
-  pairingEphemeralKeyPair: KeyPair;
+  readonly pairingEphemeralKeyPair: KeyPair;
   advSecretKey: string;
 
   me?: Contact;
@@ -61,20 +61,26 @@ export type AuthenticationCreds = SignalCreds & {
   /** number of times history & app state has been synced */
   accountSyncCounter: number;
   accountSettings: AccountSettings;
+  registered: boolean;
   pairingCode: string | undefined;
   pairingRef: string | undefined;
-  registered: boolean;
   lastPropHash: string | undefined;
+  routingInfo: Buffer | undefined;
+  additionalData?: any | undefined;
 };
 
 export type SignalDataTypeMap = {
   "pre-key": KeyPair;
-  session: any;
-  "sender-key": any;
+  session: Uint8Array;
+  "sender-key": Uint8Array;
   "sender-key-memory": { [jid: string]: boolean };
   "contacts-tc-token": { token: Buffer; timestamp?: string };
   "app-state-sync-key": proto.Message.IAppStateSyncKeyData;
   "app-state-sync-version": LTHashState;
+  "lid-mapping": string;
+  "device-list": string[];
+  tctoken: { token: Buffer; timestamp?: string };
+  "identity-key": Uint8Array;
 };
 
 export type SignalDataSet = {
