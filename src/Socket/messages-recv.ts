@@ -896,6 +896,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     const status = getCallStatusFromNode(infoChild);
     const call: WACallEvent = {
       chatId: attrs.from,
+      callerPn: infoChild.attrs["caller_pn"],
       from,
       id: callId,
       date: new Date(+attrs.t * 1000),
@@ -913,6 +914,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     if (callOfferData[call.id]) {
       call.isVideo = callOfferData[call.id].isVideo;
       call.isGroup = callOfferData[call.id].isGroup;
+      call.callerPn = call.callerPn || callOfferData[call.id].callerPn;
     }
 
     // delete data once call has ended

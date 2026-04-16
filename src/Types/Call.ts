@@ -9,6 +9,7 @@ export type WACallUpdateType =
 export type WACallEvent = {
   chatId: string;
   from: string;
+  callerPn?: string;
   isGroup?: boolean;
   id: string;
   date: Date;

@@ -624,6 +624,7 @@ export const normalizeMessageContent = (
     content?.documentWithCaptionMessage?.message ||
     content?.ephemeralMessage?.message?.viewOnceMessage?.message ||
     content?.ephemeralMessage?.message ||
+    content?.associatedChildMessage?.message ||
     content?.viewOnceMessage?.message ||
     content?.viewOnceMessageV2Extension?.message ||
     content?.viewOnceMessageV2?.message ||
