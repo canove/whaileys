@@ -1,0 +1,27 @@
+name: 💡 Feature Requests
+description: Template for general issues/feature requests
+title: "[FEATURE] "
+labels: ["enhancement", "precisa-triagem"]
+
+body:
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      placeholder: A clear and concise title for the feature request.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Add a description
+      placeholder: |
+        **Before adding this issue, make sure you do the following to make sure this is not a duplicate:**
+        1. Search through the repo's previous issues
+        2. Read through the readme at least once
+        3. Search the docs for the feature you're looking for
+
+        **Just describe the feature**
+    validations:
+      required: true
