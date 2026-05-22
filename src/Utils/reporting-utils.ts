@@ -344,7 +344,7 @@ const extractReportingTokenContent = (
   return Buffer.concat(out.map(f => f.bytes));
 };
 
-const generateMsgSecretKey = async (
+export const generateMsgSecretKey = async (
   modificationType: string,
   origMsgId: string,
   origMsgSender: string,
