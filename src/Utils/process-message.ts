@@ -144,7 +144,12 @@ export const decryptSecretEncryptedMessage = async (
     return;
   }
 
+  const modLid = message.key.senderLid || message.key.participantLid;
+  const targetLid =
+    targetMessageKey.senderLid || targetMessageKey.participantLid;
   const envelopeIsLid =
+    !!modLid ||
+    !!targetLid ||
     isLidUser(message.key.remoteJid ?? undefined) ||
     isLidUser(message.key.participant ?? undefined) ||
     isLidUser(targetMessageKey.remoteJid ?? undefined) ||
@@ -153,11 +158,19 @@ export const decryptSecretEncryptedMessage = async (
   const originalSender = targetMessageKey.fromMe
     ? ownSender
     : jidNormalizedUser(
-        targetMessageKey.participant || targetMessageKey.remoteJid || ""
+        (envelopeIsLid && (targetLid || modLid)) ||
+          targetMessageKey.participant ||
+          targetMessageKey.remoteJid ||
+          ""
       );
   const modificationSender = message.key.fromMe
     ? ownSender
-    : jidNormalizedUser(message.key.participant || message.key.remoteJid || "");
+    : jidNormalizedUser(
+        (envelopeIsLid && modLid) ||
+          message.key.participant ||
+          message.key.remoteJid ||
+          ""
+      );
 
   if (!originalSender || !modificationSender) {
     logger?.warn(
