@@ -91,7 +91,13 @@ export type SocketConfig = {
   options: AxiosRequestConfig<any>;
   /**
    * fetch a message from your store
-   * implement this so that messages failed to send (solves the "this message can take a while" issue) can be retried
+   * implement this so that messages failed to send (solves the "this message can take a while" issue) can be retried.
+   * `reason: "secret"` signals the caller only needs `messageContextInfo.messageSecret`, so the consumer can return a minimal shape.
    * */
-  getMessage: (key: proto.IMessageKey) => Promise<proto.IMessage | undefined>;
+  getMessage: (
+    key: proto.IMessageKey,
+    reason?: GetMessageReason
+  ) => Promise<proto.IMessage | undefined>;
 };
+
+export type GetMessageReason = "retry" | "bad-ack" | "secret";

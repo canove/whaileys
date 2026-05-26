@@ -10,14 +10,30 @@ import {
   SignalKeyStoreWithTransaction,
   SocketConfig,
   WAMessage,
+  WAMessageKey,
   WAMessageStubType
 } from "../Types";
 import {
+  aesDecryptGCM,
   downloadAndProcessHistorySyncNotification,
   normalizeMessageContent,
   toNumber
 } from "../Utils";
-import { areJidsSameUser, isJidGroup, jidNormalizedUser } from "../WABinary";
+import {
+  areJidsSameUser,
+  isJidGroup,
+  isLidUser,
+  jidNormalizedUser
+} from "../WABinary";
+import { generateMsgSecretKey } from "./reporting-utils";
+
+const SECRET_ENC_LABELS: Readonly<
+  Partial<Record<proto.Message.SecretEncryptedMessage.SecretEncType, string>>
+> = {
+  [proto.Message.SecretEncryptedMessage.SecretEncType.MESSAGE_EDIT]:
+    "Message Edit",
+  [proto.Message.SecretEncryptedMessage.SecretEncType.EVENT_EDIT]: "Event Edit"
+};
 
 type ProcessMessageContext = {
   shouldProcessHistoryMsg: boolean;
@@ -37,7 +53,11 @@ const MSG_MISSED_CALL_TYPES = new Set([
 ]);
 
 /** Cleans a received message to further processing */
-export const cleanMessage = (message: proto.IWebMessageInfo, meId: string) => {
+export const cleanMessage = (
+  message: proto.IWebMessageInfo,
+  meId: string,
+  meLid?: string
+) => {
   // ensure remoteJid and participant doesn't have device or agent in it
   message.key.remoteJid = jidNormalizedUser(message.key.remoteJid!);
   message.key.participant = message.key.participant
@@ -45,15 +65,24 @@ export const cleanMessage = (message: proto.IWebMessageInfo, meId: string) => {
     : undefined;
   const content = normalizeMessageContent(message.message);
   // if the message has a reaction, ensure fromMe & remoteJid are from our perspective
-  if (content?.reactionMessage) {
-    const msgKey = content.reactionMessage.key!;
+  if (content?.reactionMessage?.key) {
+    normaliseKey(content.reactionMessage.key);
+  }
+
+  if (content?.secretEncryptedMessage?.targetMessageKey) {
+    normaliseKey(content.secretEncryptedMessage.targetMessageKey);
+  }
+
+  function normaliseKey(msgKey: proto.IMessageKey) {
     // if the reaction is from another user
     // we've to correctly map the key to this user's perspective
     if (!message.key.fromMe) {
       // if the sender believed the message being reacted to is not from them
       // we've to correct the key to be from them, or some other participant
       msgKey.fromMe = !msgKey.fromMe
-        ? areJidsSameUser(msgKey.participant || msgKey.remoteJid!, meId)
+        ? areJidsSameUser(msgKey.participant || msgKey.remoteJid!, meId) ||
+          (!!meLid &&
+            areJidsSameUser(msgKey.participant || msgKey.remoteJid!, meLid))
         : // if the message being reacted to, was from them
           // fromMe automatically becomes false
           false;
@@ -65,12 +94,154 @@ export const cleanMessage = (message: proto.IWebMessageInfo, meId: string) => {
   }
 };
 
+export const decryptSecretEncryptedMessage = async (
+  message: WAMessage,
+  messageSecret: Uint8Array,
+  meId: string,
+  meLid: string | undefined,
+  logger?: Logger
+) => {
+  const content = normalizeMessageContent(message.message);
+  const secretEncryptedMessage = content?.secretEncryptedMessage;
+  if (!secretEncryptedMessage) return;
+
+  const targetMessageKey = secretEncryptedMessage.targetMessageKey as
+    | WAMessageKey
+    | undefined;
+  const secretEncType = secretEncryptedMessage.secretEncType;
+  const { SecretEncType } = proto.Message.SecretEncryptedMessage;
+
+  if (
+    secretEncType === null ||
+    secretEncType === undefined ||
+    secretEncType === SecretEncType.UNKNOWN ||
+    !targetMessageKey?.id
+  ) {
+    logger?.warn(
+      {
+        secretEncType,
+        targetMessageKey: secretEncryptedMessage.targetMessageKey
+      },
+      "unsupported secret encrypted message type"
+    );
+    return;
+  }
+
+  const useCaseLabel = SECRET_ENC_LABELS[secretEncType];
+  if (!useCaseLabel) {
+    logger?.info(
+      { secretEncType, targetMessageKey, messageKey: message.key },
+      "no HKDF label registered for secret encrypted message type, leaving envelope intact"
+    );
+    return;
+  }
+
+  if (
+    !secretEncryptedMessage.encPayload?.length ||
+    !secretEncryptedMessage.encIv?.length
+  ) {
+    logger?.warn({ targetMessageKey }, "missing encrypted edit payload");
+    return;
+  }
+
+  const modLid = message.key.senderLid || message.key.participantLid;
+  const targetLid =
+    targetMessageKey.senderLid || targetMessageKey.participantLid;
+  const envelopeIsLid =
+    !!modLid ||
+    !!targetLid ||
+    isLidUser(message.key.remoteJid ?? undefined) ||
+    isLidUser(message.key.participant ?? undefined) ||
+    isLidUser(targetMessageKey.remoteJid ?? undefined) ||
+    isLidUser(targetMessageKey.participant ?? undefined);
+  const ownSender = jidNormalizedUser(envelopeIsLid && meLid ? meLid : meId);
+  const originalSender = targetMessageKey.fromMe
+    ? ownSender
+    : jidNormalizedUser(
+        (envelopeIsLid && (targetLid || modLid)) ||
+          targetMessageKey.participant ||
+          targetMessageKey.remoteJid ||
+          ""
+      );
+  const modificationSender = message.key.fromMe
+    ? ownSender
+    : jidNormalizedUser(
+        (envelopeIsLid && modLid) ||
+          message.key.participant ||
+          message.key.remoteJid ||
+          ""
+      );
+
+  if (!originalSender || !modificationSender) {
+    logger?.warn(
+      { targetMessageKey, messageKey: message.key },
+      "missing sender for secret encrypted message"
+    );
+    return;
+  }
+
+  let editedMessage: proto.IMessage | undefined;
+  try {
+    const decryptKey = await generateMsgSecretKey(
+      useCaseLabel,
+      targetMessageKey.id,
+      originalSender,
+      modificationSender,
+      messageSecret
+    );
+    const decrypted = aesDecryptGCM(
+      secretEncryptedMessage.encPayload,
+      decryptKey,
+      secretEncryptedMessage.encIv,
+      Buffer.alloc(0)
+    );
+    editedMessage = proto.Message.decode(decrypted);
+  } catch (err) {
+    logger?.warn(
+      {
+        err,
+        targetMessageKey,
+        messageKey: message.key,
+        originalSender,
+        modificationSender
+      },
+      "failed to decrypt secret encrypted message"
+    );
+    return;
+  }
+
+  if (
+    editedMessage.protocolMessage?.type ===
+    proto.Message.ProtocolMessage.Type.MESSAGE_EDIT
+  ) {
+    message.message = editedMessage;
+    return;
+  }
+
+  if (
+    message.message?.messageContextInfo &&
+    !editedMessage.messageContextInfo
+  ) {
+    editedMessage.messageContextInfo = message.message.messageContextInfo;
+  }
+
+  message.message = {
+    protocolMessage: {
+      key: targetMessageKey,
+      type: proto.Message.ProtocolMessage.Type.MESSAGE_EDIT,
+      editedMessage,
+      timestampMs: toNumber(message.messageTimestamp) * 1000
+    }
+  };
+};
+
 export const isRealMessage = (message: proto.IWebMessageInfo) => {
   const normalizedContent = normalizeMessageContent(message.message);
   return (
     (!!normalizedContent ||
       MSG_MISSED_CALL_TYPES.has(message.messageStubType!)) &&
     !normalizedContent?.protocolMessage &&
+    !normalizedContent?.secretEncryptedMessage &&
     !normalizedContent?.reactionMessage
   );
 };
