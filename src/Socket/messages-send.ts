@@ -569,13 +569,6 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         const meLidUser = jidDecode(meLid)?.user;
         const isPeerMsg = user === meUser || user === meLidUser;
 
-        const encodedMeMsg = encodeWAMessage({
-          deviceSentMessage: {
-            destinationJid, // TODO maybe we need to change it for LID after getting the PN lid?
-            message
-          }
-        });
-
         if (additionalAttributes?.["category"] === "peer" && isPeerMsg) {
           devices.push({ user });
         } else {
@@ -594,12 +587,19 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         const isLidMode = devices.every(d => d.isLid);
 
         if (isLidMode && isDestinationPn) {
-          const destinationLid = devices.find(
-            d => d.user === destinationUser
-          )?.lid!;
+          const destinationLid =
+            devices.length &&
+            devices.find(d => d.user === destinationUser)?.lid;
 
-          destinationJid = jidEncode(destinationLid, "lid");
+          if (destinationLid) destinationJid = jidEncode(destinationLid, "lid");
         }
+
+        const encodedMeMsg = encodeWAMessage({
+          deviceSentMessage: {
+            destinationJid,
+            message
+          }
+        });
 
         for (const { user, lid, device } of devices) {
           const isMe = user === meUser;
