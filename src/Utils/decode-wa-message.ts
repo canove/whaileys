@@ -151,7 +151,6 @@ export const decodeMessageStanza = (
     participantLid,
     recipientLid
   };
-  console.log("🚀 ~ key:", key);
 
   const fullMessage: WAMessage = {
     key,

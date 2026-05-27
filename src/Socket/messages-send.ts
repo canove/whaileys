@@ -596,11 +596,9 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         if (isLidMode && isDestinationPn) {
           const destinationLid = devices.find(
             d => d.user === destinationUser
-          )?.lid;
+          )?.lid!;
 
-          if (destinationLid) {
-            destinationJid = jidEncode(destinationLid, "lid");
-          }
+          destinationJid = jidEncode(destinationLid, "lid");
         }
 
         for (const { user, lid, device } of devices) {
@@ -682,6 +680,10 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         const isMe =
           areJidsSameUser(participant!.jid, meId) ||
           areJidsSameUser(participant!.jid, meLid);
+
+        if (isJidUser(participant!.jid)) {
+          logger.fatal({ participant }, "received retry from participant jid");
+        }
 
         const encodedMessageToSend = isMe
           ? encodeWAMessage({
