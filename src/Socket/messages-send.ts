@@ -577,10 +577,10 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         });
 
         if (additionalAttributes?.["category"] === "peer" && isPeerMsg) {
-          devices.push({ user: meLidUser! });
+          devices.push({ user });
         } else {
           const additionalDevices = await getUSyncDevices(
-            [jid, meId],
+            [meId, jid],
             !!useUserDevicesCache,
             false
           );
@@ -811,48 +811,6 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         { msgId },
         `sending message to ${participants.length} devices`
       );
-
-      if (isRetryResend) {
-        const simplifyBuffers = (obj: any): any => {
-          if (Buffer.isBuffer(obj)) {
-            return "BUFFER";
-          }
-
-          if (Array.isArray(obj)) {
-            return obj.map(simplifyBuffers);
-          }
-
-          if (obj && typeof obj === "object") {
-            return Object.fromEntries(
-              Object.entries(obj).map(([k, v]) => [k, simplifyBuffers(v)])
-            );
-          }
-
-          return obj;
-        };
-
-        console.log("stanza", JSON.stringify(simplifyBuffers(stanza), null, 2));
-      }
-
-      const simplifyBuffers = (obj: any): any => {
-        if (Buffer.isBuffer(obj)) {
-          return "BUFFER";
-        }
-
-        if (Array.isArray(obj)) {
-          return obj.map(simplifyBuffers);
-        }
-
-        if (obj && typeof obj === "object") {
-          return Object.fromEntries(
-            Object.entries(obj).map(([k, v]) => [k, simplifyBuffers(v)])
-          );
-        }
-
-        return obj;
-      };
-
-      console.log("stanza", JSON.stringify(simplifyBuffers(stanza), null, 2));
 
       await sendNode(stanza);
     });
