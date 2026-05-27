@@ -519,6 +519,8 @@ export const makeMessagesSocket = (config: SocketConfig) => {
             senderKeyJids.push(encodedLid);
             // store that this person has had the sender keys sent to them
             senderKeyMap[encodedLid] = true;
+          } else if (isStatus) {
+            senderKeyJids.push(encodedLid);
           }
         }
 
@@ -961,6 +963,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         fullMsg.message = patchMessageForMdIfRequired(fullMsg.message!);
 
         await relayMessage(jid, fullMsg.message!, {
+          ...options,
           messageId: fullMsg.key.id!,
           additionalAttributes
         });
