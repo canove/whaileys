@@ -85,6 +85,50 @@ export type VoteAggregation = {
   voters: string[];
 };
 
+/** Association type */
+export enum LabelAssociationType {
+  Chat = "label_jid",
+  Message = "label_message"
+}
+
+export type LabelAssociationTypes = `${LabelAssociationType}`;
+
+/** Association for chat */
+export interface ChatLabelAssociation {
+  type: LabelAssociationType.Chat;
+  chatId: string;
+  labelId: string;
+}
+
+/** Association for message */
+export interface MessageLabelAssociation {
+  type: LabelAssociationType.Message;
+  chatId: string;
+  messageId: string;
+  labelId: string;
+}
+
+export type LabelAssociation = ChatLabelAssociation | MessageLabelAssociation;
+
+/** Body for add/remove chat label association action */
+export interface ChatLabelAssociationActionBody {
+  labelId: string;
+}
+
+/** body for add/remove message label association action */
+export interface MessageLabelAssociationActionBody {
+  labelId: string;
+  messageId: string;
+}
+
+export interface Label {
+  id: string;
+  name: string;
+  color: number;
+  predefinedId: number;
+  deleted: boolean;
+}
+
 export type ChatModification =
   | {
       archive: boolean;
@@ -115,6 +159,37 @@ export type ChatModification =
   | {
       /** contact action (create/edit/remove contact in app state) */
       contact: proto.SyncActionValue.IContactAction | null;
+    }
+  | {
+      addLabel: {
+        name: string;
+        color: number;
+        predefinedId: number;
+        deleted: boolean;
+        id: string;
+      };
+    }
+  | {
+      addChatLabel: {
+        labelId: string;
+      };
+    }
+  | {
+      removeChatLabel: {
+        labelId: string;
+      };
+    }
+  | {
+      addMessageLabel: {
+        labelId: string;
+        messageId: string;
+      };
+    }
+  | {
+      removeMessageLabel: {
+        labelId: string;
+        messageId: string;
+      };
     };
 
 export type InitialReceivedChatsState = {

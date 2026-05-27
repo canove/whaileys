@@ -233,7 +233,11 @@ export const decodeMessageStanza = (
               e2eType !== "plaintext" ? unpadRandomMax16(msgBuffer) : msgBuffer
             );
 
-            msg = msg.deviceSentMessage?.message || msg;
+            if (msg.deviceSentMessage?.message) {
+              const inner = msg.deviceSentMessage.message;
+              const { deviceSentMessage, ...outer } = msg;
+              msg = { ...outer, ...inner };
+            }
             if (msg.senderKeyDistributionMessage) {
               await processSenderKeyMessage(
                 author,

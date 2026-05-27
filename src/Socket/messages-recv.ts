@@ -27,12 +27,16 @@ import {
   getNextPreKeys,
   getStatusFromReceiptType,
   hkdf,
+  normalizeMessageContent,
   unixTimestampSeconds,
   xmppPreKey,
   xmppSignedPreKey
 } from "../Utils";
 import { makeMutex } from "../Utils/make-mutex";
-import { cleanMessage } from "../Utils/process-message";
+import {
+  cleanMessage,
+  decryptSecretEncryptedMessage
+} from "../Utils/process-message";
 import {
   areJidsSameUser,
   BinaryNode,
@@ -57,7 +61,8 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     retryRequestDelayMs,
     getMessage,
     sentMessagesCache,
-    shouldIgnoreJid
+    shouldIgnoreJid,
+    shouldResendMessageOn475AckError
   } = config;
   const sock = makeMessagesSocket(config);
   const {
@@ -839,7 +844,49 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
             }
           }
 
-          cleanMessage(msg, authState.creds.me!.id);
+          cleanMessage(msg, authState.creds.me!.id, authState.creds.me?.lid);
+
+          const content = normalizeMessageContent(msg.message);
+          const secretEncryptedMessage = content?.secretEncryptedMessage;
+          const secretEncType = secretEncryptedMessage?.secretEncType;
+          if (
+            secretEncryptedMessage &&
+            secretEncType !== null &&
+            secretEncType !== undefined &&
+            secretEncType !==
+              proto.Message.SecretEncryptedMessage.SecretEncType.UNKNOWN
+          ) {
+            const targetMessageKey = secretEncryptedMessage.targetMessageKey as
+              | WAMessageKey
+              | undefined;
+            const originalMessage = targetMessageKey?.id
+              ? await getMessage(targetMessageKey, "secret").catch(err => {
+                  logger.warn(
+                    { err, targetMessageKey },
+                    "failed to load original message for encrypted edit"
+                  );
+                  return undefined;
+                })
+              : undefined;
+
+            const messageSecret =
+              normalizeMessageContent(originalMessage)?.messageContextInfo
+                ?.messageSecret;
+            if (messageSecret?.length) {
+              await decryptSecretEncryptedMessage(
+                msg,
+                messageSecret,
+                authState.creds.me!.id,
+                authState.creds.me?.lid,
+                logger
+              );
+            } else {
+              logger.warn(
+                { targetMessageKey },
+                "missing original message secret for encrypted edit"
+              );
+            }
+          }
 
           await upsertMessage(msg, node.attrs.offline ? "append" : "notify");
         })
@@ -895,6 +942,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     const status = getCallStatusFromNode(infoChild);
     const call: WACallEvent = {
       chatId: attrs.from,
+      callerPn: infoChild.attrs["caller_pn"],
       from,
       id: callId,
       date: new Date(+attrs.t * 1000),
@@ -912,6 +960,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     if (callOfferData[call.id]) {
       call.isVideo = callOfferData[call.id].isVideo;
       call.isGroup = callOfferData[call.id].isGroup;
+      call.callerPn = call.callerPn || callOfferData[call.id].callerPn;
     }
 
     // delete data once call has ended
@@ -936,26 +985,34 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     // DISABLED DUE TO LOOP IN GROUPS CAUSING BAN, SHOULD BE RE-ENABLED IF SOME DEVICES NOT GET THE MESSAGE ON 1x1 CHATS
     if (attrs.error === "475" && !isJidGroup(attrs.from)) {
       logger.error({ attrs }, "received 475 error in ack");
-      // const key: WAMessageKey = {
-      //   remoteJid: attrs.from,
-      //   fromMe: true,
-      //   id: attrs.id
-      // };
-      // const msg =
-      //   ((await sentMessagesCache?.get(key.id!)) as
-      //     | proto.IMessage
-      //     | undefined) || (await getMessage(key));
 
-      // TODO ENABLE?
-      // if (msg) {
-      //   await relayMessage(key.remoteJid!, msg, {
-      //     messageId: key.id!,
-      //     useUserDevicesCache: false,
-      //     additionalAttributes: {
-      //       device_fanout: "false"
-      //     }
-      //   });
-      // }
+      if (shouldResendMessageOn475AckError) {
+        const key: WAMessageKey = {
+          remoteJid: attrs.from,
+          fromMe: true,
+          id: attrs.id
+        };
+
+        const msg =
+          ((await sentMessagesCache?.get(key.id!)) as
+            | proto.IMessage
+            | undefined) || (await getMessage(key, "bad-ack"));
+
+        if (msg) {
+          logger.trace(
+            { attrs },
+            "resending message with device_fanout set to false due to 475 ack error"
+          );
+
+          await relayMessage(key.remoteJid!, msg, {
+            messageId: key.id!,
+            useUserDevicesCache: false,
+            additionalAttributes: {
+              device_fanout: "false"
+            }
+          });
+        }
+      }
     }
   };
 

@@ -1,0 +1,45 @@
+name: 🐛 Bug report
+description: Create a report to help improve the library
+title: "[BUG] "
+labels: ["bug"]
+
+body:
+  - type: textarea
+    id: descricao
+    attributes:
+      label: Describe the bug
+      placeholder: A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: To Reproduce
+      placeholder: |
+        Steps to reproduce the behavior:
+        1. Created a new connection
+        2. Closed & used saved credentials to log back in
+        3. Etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment (please complete the following information)
+      placeholder: |
+        - Is this on a server?
+        - What do your `connectOptions` look like?
+        - Do you have multiple clients on the same IP?
+        - Are you using a proxy?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      placeholder: Add any other context about the problem here.
+    validations:
+      required: false
