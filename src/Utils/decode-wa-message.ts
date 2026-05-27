@@ -100,7 +100,7 @@ export const decodeMessageStanza = (
     }
 
     msgType = "chat";
-    author = from;
+    author = isMe(from) ? jidEncode(meLidUser, "lid", fromDevice) : from;
   } else if (isJidGroup(from)) {
     if (!participant) {
       throw new Boom("No participant in group message");
@@ -151,6 +151,7 @@ export const decodeMessageStanza = (
     participantLid,
     recipientLid
   };
+  console.log("🚀 ~ key:", key);
 
   const fullMessage: WAMessage = {
     key,

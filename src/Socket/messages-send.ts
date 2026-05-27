@@ -247,6 +247,10 @@ export const makeMessagesSocket = (config: SocketConfig) => {
                 {
                   tag: "devices",
                   attrs: { version: "2" }
+                },
+                {
+                  tag: "lid",
+                  attrs: {}
                 }
               ]
             },
@@ -436,7 +440,9 @@ export const makeMessagesSocket = (config: SocketConfig) => {
     msgId = msgId || generateMessageIDV2(sock.user?.id);
     useUserDevicesCache = useUserDevicesCache !== false;
 
-    const destinationJid = isStatus ? "status@broadcast" : jid;
+    let destinationJid = isStatus ? "status@broadcast" : jid;
+    const destinationUser = jidDecode(destinationJid)?.user!;
+    const isDestinationPn = isJidUser(destinationJid);
 
     const participants: BinaryNode[] = [];
     const binaryNodeContent: BinaryNode[] = [];
@@ -562,20 +568,19 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         const meUser = jidDecode(meId)?.user;
         const meLidUser = jidDecode(meLid)?.user;
         const isPeerMsg = user === meUser || user === meLidUser;
-        const isDestinationLid = isLidUser(destinationJid);
 
         const encodedMeMsg = encodeWAMessage({
           deviceSentMessage: {
-            destinationJid,
+            destinationJid, // TODO maybe we need to change it for LID after getting the PN lid?
             message
           }
         });
 
         if (additionalAttributes?.["category"] === "peer" && isPeerMsg) {
-          devices.push({ user });
+          devices.push({ user: meLidUser! });
         } else {
           const additionalDevices = await getUSyncDevices(
-            [isDestinationLid ? meLid : meId, jid],
+            [jid, meId],
             !!useUserDevicesCache,
             false
           );
@@ -586,12 +591,25 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         const meIds: string[] = [];
         const otherIds: string[] = [];
 
-        for (const { user, device, isLid } of devices) {
+        const isLidMode = devices.every(d => d.isLid);
+
+        if (isLidMode && isDestinationPn) {
+          const destinationLid = devices.find(
+            d => d.user === destinationUser
+          )?.lid;
+
+          if (destinationLid) {
+            destinationJid = jidEncode(destinationLid, "lid");
+          }
+        }
+
+        for (const { user, lid, device } of devices) {
           const isMe = user === meUser;
+          const userId = isLidMode ? lid! : user;
 
           const encodedLid = jidEncode(
-            user,
-            isLid ? "lid" : "s.whatsapp.net",
+            userId,
+            isLidMode ? "lid" : "s.whatsapp.net",
             device
           );
 
@@ -661,7 +679,9 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           });
         }
 
-        const isMe = areJidsSameUser(participant!.jid, meId);
+        const isMe =
+          areJidsSameUser(participant!.jid, meId) ||
+          areJidsSameUser(participant!.jid, meLid);
 
         const encodedMessageToSend = isMe
           ? encodeWAMessage({
@@ -702,10 +722,14 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       // ensure the message is only sent to that person
       // if a retry receipt is sent to everyone -- it'll fail decryption for everyone else who received the msg
       if (participant) {
+        const isMe =
+          areJidsSameUser(participant.jid, meId) ||
+          areJidsSameUser(participant.jid, meLid);
+
         if (isJidGroup(destinationJid)) {
           stanza.attrs.to = destinationJid;
           stanza.attrs.participant = participant.jid;
-        } else if (areJidsSameUser(participant.jid, meId)) {
+        } else if (isMe) {
           stanza.attrs.to = participant.jid;
           stanza.attrs.recipient = destinationJid;
         } else {
@@ -787,6 +811,48 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         { msgId },
         `sending message to ${participants.length} devices`
       );
+
+      if (isRetryResend) {
+        const simplifyBuffers = (obj: any): any => {
+          if (Buffer.isBuffer(obj)) {
+            return "BUFFER";
+          }
+
+          if (Array.isArray(obj)) {
+            return obj.map(simplifyBuffers);
+          }
+
+          if (obj && typeof obj === "object") {
+            return Object.fromEntries(
+              Object.entries(obj).map(([k, v]) => [k, simplifyBuffers(v)])
+            );
+          }
+
+          return obj;
+        };
+
+        console.log("stanza", JSON.stringify(simplifyBuffers(stanza), null, 2));
+      }
+
+      const simplifyBuffers = (obj: any): any => {
+        if (Buffer.isBuffer(obj)) {
+          return "BUFFER";
+        }
+
+        if (Array.isArray(obj)) {
+          return obj.map(simplifyBuffers);
+        }
+
+        if (obj && typeof obj === "object") {
+          return Object.fromEntries(
+            Object.entries(obj).map(([k, v]) => [k, simplifyBuffers(v)])
+          );
+        }
+
+        return obj;
+      };
+
+      console.log("stanza", JSON.stringify(simplifyBuffers(stanza), null, 2));
 
       await sendNode(stanza);
     });
