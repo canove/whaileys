@@ -247,6 +247,10 @@ export const makeMessagesSocket = (config: SocketConfig) => {
                 {
                   tag: "devices",
                   attrs: { version: "2" }
+                },
+                {
+                  tag: "lid",
+                  attrs: {}
                 }
               ]
             },
@@ -336,9 +340,9 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       }
     };
 
-    const meJid = jidNormalizedUser(authState.creds.me.id);
+    const meLid = jidNormalizedUser(authState.creds.me.lid);
 
-    const msgId = await relayMessage(meJid, protocolMessage, {
+    const msgId = await relayMessage(meLid, protocolMessage, {
       additionalAttributes: {
         category: "peer",
         push_priority: "high_force"
@@ -424,6 +428,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
     }: MessageRelayOptions
   ) => {
     const meId = authState.creds.me!.id;
+    const meLid = authState.creds.me!.lid!;
     const isRetryResend = Boolean(participant?.jid);
 
     let shouldIncludeDeviceIdentity = isRetryResend;
@@ -435,7 +440,9 @@ export const makeMessagesSocket = (config: SocketConfig) => {
     msgId = msgId || generateMessageIDV2(sock.user?.id);
     useUserDevicesCache = useUserDevicesCache !== false;
 
-    const destinationJid = isStatus ? "status@broadcast" : jid;
+    let destinationJid = isStatus ? "status@broadcast" : jid;
+    const destinationUser = jidDecode(destinationJid)?.user!;
+    const isDestinationPn = isJidUser(destinationJid);
 
     const participants: BinaryNode[] = [];
     const binaryNodeContent: BinaryNode[] = [];
@@ -471,7 +478,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         ]);
 
         const participantsList = groupData
-          ? groupData.participants.map(p => p.id)
+          ? groupData.participants.map(p => p.lid || p.id)
           : [];
 
         if (groupData?.ephemeralDuration) {
@@ -559,16 +566,11 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       } else if (!isRetryResend) {
         const { user } = jidDecode(destinationJid)!;
         const meUser = jidDecode(meId)?.user;
+        const meLidUser = jidDecode(meLid)?.user;
+        const isPeerMsg = user === meUser || user === meLidUser;
 
-        const encodedMeMsg = encodeWAMessage({
-          deviceSentMessage: {
-            destinationJid,
-            message
-          }
-        });
-
-        if (additionalAttributes?.["category"] === "peer" && user === meUser) {
-          devices.push({ user: meUser });
+        if (additionalAttributes?.["category"] === "peer" && isPeerMsg) {
+          devices.push({ user });
         } else {
           const additionalDevices = await getUSyncDevices(
             [meId, jid],
@@ -582,12 +584,30 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         const meIds: string[] = [];
         const otherIds: string[] = [];
 
-        for (const { user, device, isLid } of devices) {
+        const isLidMode = devices.every(d => d.isLid);
+
+        if (isLidMode && isDestinationPn) {
+          const destinationLid =
+            devices.length &&
+            devices.find(d => d.user === destinationUser)?.lid;
+
+          if (destinationLid) destinationJid = jidEncode(destinationLid, "lid");
+        }
+
+        const encodedMeMsg = encodeWAMessage({
+          deviceSentMessage: {
+            destinationJid,
+            message
+          }
+        });
+
+        for (const { user, lid, device } of devices) {
           const isMe = user === meUser;
+          const userId = isLidMode ? lid! : user;
 
           const encodedLid = jidEncode(
-            user,
-            isLid ? "lid" : "s.whatsapp.net",
+            userId,
+            isLidMode ? "lid" : "s.whatsapp.net",
             device
           );
 
@@ -657,7 +677,13 @@ export const makeMessagesSocket = (config: SocketConfig) => {
           });
         }
 
-        const isMe = areJidsSameUser(participant!.jid, meId);
+        const isMe =
+          areJidsSameUser(participant!.jid, meId) ||
+          areJidsSameUser(participant!.jid, meLid);
+
+        if (isJidUser(participant!.jid)) {
+          logger.fatal({ participant }, "received retry from participant jid");
+        }
 
         const encodedMessageToSend = isMe
           ? encodeWAMessage({
@@ -698,10 +724,14 @@ export const makeMessagesSocket = (config: SocketConfig) => {
       // ensure the message is only sent to that person
       // if a retry receipt is sent to everyone -- it'll fail decryption for everyone else who received the msg
       if (participant) {
+        const isMe =
+          areJidsSameUser(participant.jid, meId) ||
+          areJidsSameUser(participant.jid, meLid);
+
         if (isJidGroup(destinationJid)) {
           stanza.attrs.to = destinationJid;
           stanza.attrs.participant = participant.jid;
-        } else if (areJidsSameUser(participant.jid, meId)) {
+        } else if (isMe) {
           stanza.attrs.to = participant.jid;
           stanza.attrs.recipient = destinationJid;
         } else {
