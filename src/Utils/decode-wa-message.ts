@@ -82,6 +82,7 @@ export const decodeMessageStanza = (
   const recipientLid = isLidUser(stanza.attrs.recipient)
     ? stanza.attrs.recipient
     : stanza.attrs.peer_recipient_lid;
+  const recipientPn = stanza.attrs.peer_recipient_pn;
 
   const isMe = (jid: string) => areJidsSameUser(jid, auth.creds.me!.id);
   const isMeLid = (jid: string) => areJidsSameUser(jid, auth.creds.me!.lid);
@@ -149,7 +150,8 @@ export const decodeMessageStanza = (
     participant,
     participantPn,
     participantLid,
-    recipientLid
+    recipientLid,
+    recipientPn
   };
 
   const fullMessage: WAMessage = {
