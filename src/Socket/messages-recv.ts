@@ -91,6 +91,11 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
   let sendActiveReceipts = false;
 
   const sendMessageAck = async ({ tag, attrs, content }: BinaryNode) => {
+    if (ws.readyState !== ws.OPEN) {
+      logger.debug({ tag, id: attrs.id }, "connection closed, skipping ack");
+      return;
+    }
+
     const stanza: BinaryNode = {
       tag: "ack",
       attrs: {
@@ -411,20 +416,54 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
           node,
           "link_code_companion_reg"
         );
-        const ref = toRequiredBuffer(
-          getBinaryNodeChildBuffer(
-            linkCodeCompanionReg,
-            "link_code_pairing_ref"
-          )
+        if (!linkCodeCompanionReg) {
+          logger.warn(
+            "Received link_code_companion_reg notification without node content"
+          );
+          break;
+        }
+        if (
+          !authState.creds.pairingCode ||
+          !authState.creds.pairingEphemeralKeyPair
+        ) {
+          logger.warn(
+            "Received link_code_companion_reg but pairing credentials are missing"
+          );
+          break;
+        }
+        const refBuffer = getBinaryNodeChildBuffer(
+          linkCodeCompanionReg,
+          "link_code_pairing_ref"
         );
+        const primaryIdentityPubBuffer = getBinaryNodeChildBuffer(
+          linkCodeCompanionReg,
+          "primary_identity_pub"
+        );
+        const primaryEphemeralPubWrappedBuffer = getBinaryNodeChildBuffer(
+          linkCodeCompanionReg,
+          "link_code_pairing_wrapped_primary_ephemeral_pub"
+        );
+        if (
+          !refBuffer ||
+          !primaryIdentityPubBuffer ||
+          !primaryEphemeralPubWrappedBuffer
+        ) {
+          logger.warn(
+            {
+              hasRef: !!refBuffer,
+              hasPrimaryIdentityPub: !!primaryIdentityPubBuffer,
+              hasPrimaryEphemeralPubWrapped: !!primaryEphemeralPubWrappedBuffer
+            },
+            "Received incomplete link_code_companion_reg notification"
+          );
+          break;
+        }
+        const ref = toRequiredBuffer(refBuffer);
         const primaryIdentityPublicKey = toRequiredBuffer(
-          getBinaryNodeChildBuffer(linkCodeCompanionReg, "primary_identity_pub")
+          primaryIdentityPubBuffer
         );
         const primaryEphemeralPublicKeyWrapped = toRequiredBuffer(
-          getBinaryNodeChildBuffer(
-            linkCodeCompanionReg,
-            "link_code_pairing_wrapped_primary_ephemeral_pub"
-          )
+          primaryEphemeralPubWrappedBuffer
         );
         const codePairingPublicKey = await decipherLinkPublicKey(
           primaryEphemeralPublicKeyWrapped

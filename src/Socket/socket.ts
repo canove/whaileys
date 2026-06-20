@@ -9,7 +9,7 @@ import {
   INITIAL_PREKEY_COUNT,
   MIN_PREKEY_COUNT
 } from "../Defaults";
-import { DisconnectReason, SocketConfig } from "../Types";
+import { DisconnectReason, KeyPair, SocketConfig } from "../Types";
 import {
   addTransactionCapability,
   aesEncryptCTR,
@@ -39,6 +39,16 @@ import {
   S_WHATSAPP_NET
 } from "../WABinary";
 import { randomBytes } from "crypto";
+
+// Map custom platform names to valid OS names accepted by WhatsApp
+const VALID_OS_MAP: { [key: string]: string } = {
+  Baileys: "Windows",
+  baileys: "Windows"
+};
+
+const getPlatformOS = (platform: string): string => {
+  return VALID_OS_MAP[platform] || platform;
+};
 
 /**
  * Connects to WA servers and performs:
@@ -500,22 +510,33 @@ export const makeSocket = ({
 
   const requestPairingCode = async (
     phoneNumber: string,
-    customPairingCode?: string
+    customPairingCode?: string,
+    showPushNotification: boolean = true
   ): Promise<string> => {
+    // Gerar novo ephemeral key pair para este pairing (igual ao Go)
+    const pairingEphemeralKeyPair = Curve.generateKeyPair();
+
+    // Gerar o linking code (5 bytes -> crockford base32 = 8 chars)
+    if (customPairingCode && customPairingCode.length !== 8) {
+      throw new Boom("Custom pairing code must be exactly 8 characters");
+    }
     const pairingCode = customPairingCode ?? bytesToCrockford(randomBytes(5));
 
-    if (customPairingCode && customPairingCode?.length !== 8) {
-      throw new Boom("Custom pairing code must be exactly 8 chars");
-    }
+    const jid = jidEncode(phoneNumber, "s.whatsapp.net");
 
+    // Armazenar no estado para uso posterior no pair-success
     authState.creds.pairingCode = pairingCode;
-    authState.creds.me = {
-      id: jidEncode(phoneNumber, "s.whatsapp.net"),
-      name: "~"
-    };
+    authState.creds.pairingEphemeralKeyPair = pairingEphemeralKeyPair;
+    authState.creds.me = { id: jid, name: "~" };
     ev.emit("creds.update", authState.creds);
 
-    await sendNode({
+    // Gerar a chave empacotada (salt + iv + encrypted pubkey)
+    const ephemeralKey = await generatePairingKey(
+      pairingCode,
+      pairingEphemeralKeyPair
+    );
+
+    const resp = await query({
       tag: "iq",
       attrs: {
         to: S_WHATSAPP_NET,
@@ -527,16 +548,16 @@ export const makeSocket = ({
         {
           tag: "link_code_companion_reg",
           attrs: {
-            jid: authState.creds.me.id,
+            jid,
             stage: "companion_hello",
             // eslint-disable-next-line camelcase
-            should_show_push_notification: "true"
+            should_show_push_notification: showPushNotification.toString()
           },
           content: [
             {
               tag: "link_code_pairing_wrapped_companion_ephemeral_pub",
               attrs: {},
-              content: await generatePairingKey()
+              content: ephemeralKey
             },
             {
               tag: "companion_server_auth_key_pub",
@@ -551,31 +572,45 @@ export const makeSocket = ({
             {
               tag: "companion_platform_display",
               attrs: {},
-              content: `${browser[1]} (${browser[0]})`
+              content: `${browser[1]} (${getPlatformOS(browser[0])})`
             },
             {
               tag: "link_code_pairing_nonce",
               attrs: {},
-              content: "0"
+              content: new Uint8Array([0])
             }
           ]
         }
       ]
     });
 
-    return authState.creds.pairingCode;
+    // Ler o pairing_ref da resposta (igual ao Go)
+    const regNode = getBinaryNodeChild(resp, "link_code_companion_reg");
+    const pairingRefNode = getBinaryNodeChild(regNode, "link_code_pairing_ref");
+
+    if (!pairingRefNode) {
+      throw new Boom("link_code_pairing_ref not found in response");
+    }
+
+    const pairingRef = (pairingRefNode.content as Buffer).toString("utf-8");
+
+    // Armazenar para uso posterior no pair-success
+    authState.creds.pairingRef = pairingRef;
+    ev.emit("creds.update", authState.creds);
+
+    // Formato "XXXX-XXXX" igual ao Go
+    return pairingCode.slice(0, 4) + "-" + pairingCode.slice(4);
   };
 
-  async function generatePairingKey() {
+  async function generatePairingKey(
+    pairingCode: string,
+    ephemeralKeyPair: KeyPair
+  ) {
     const salt = randomBytes(32);
-    const randomIv = randomBytes(16);
-    const key = await derivePairingCodeKey(authState.creds.pairingCode!, salt);
-    const ciphered = aesEncryptCTR(
-      authState.creds.pairingEphemeralKeyPair.public,
-      key,
-      randomIv
-    );
-    return Buffer.concat([salt, randomIv, ciphered]);
+    const iv = randomBytes(16);
+    const key = await derivePairingCodeKey(pairingCode, salt);
+    const encryptedPubkey = aesEncryptCTR(ephemeralKeyPair.public, key, iv);
+    return Buffer.concat([salt, iv, encryptedPubkey]);
   }
 
   ws.on("message", onMessageRecieved);

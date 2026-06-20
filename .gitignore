@@ -16,3 +16,4 @@ messages*.json
 test.ts
 TestData
 wa-logs.txt
+.claude
