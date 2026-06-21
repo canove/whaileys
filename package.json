@@ -2,7 +2,7 @@
   "name": "whaileys",
   "version": "6.4.16",
   "description": "WhatsApp API",
-  "homepage": "https://github.com/canove/whaileys",
+  "homepage": "https://github.com/alltomatos/whaileys",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "keywords": [
@@ -32,7 +32,7 @@
   "author": "canove",
   "license": "MIT",
   "repository": {
-    "url": "git@github.com:canove/whaileys.git"
+    "url": "git@github.com:alltomatos/whaileys.git"
   },
   "dependencies": {
     "@hapi/boom": "^9.1.3",
