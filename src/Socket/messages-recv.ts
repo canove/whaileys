@@ -978,14 +978,16 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     await sendMessageAck(node);
   };
 
-  const handleBadAck = async ({ attrs }: BinaryNode) => {
-    // current hypothesis is that if pash is sent in the ack
-    // it means -- the message hasn't reached all devices yet
-    // we'll retry sending the message here
-    // DISABLED DUE TO LOOP IN GROUPS CAUSING BAN, SHOULD BE RE-ENABLED IF SOME DEVICES NOT GET THE MESSAGE ON 1x1 CHATS
-    if (attrs.error === "475" && !isJidGroup(attrs.from)) {
-      logger.error({ attrs }, "received 475 error in ack");
+  const handleBadAck = async (node: BinaryNode) => {
+    const { attrs } = node;
 
+    if (!attrs.error) return;
+
+    logger.error({ attrs }, `received ${attrs.error} error in ack`);
+
+    ev.emit("ack.error", { attrs });
+
+    if (attrs.error === "475" && !isJidGroup(attrs.from)) {
       if (shouldResendMessageOn475AckError) {
         const key: WAMessageKey = {
           remoteJid: attrs.from,
