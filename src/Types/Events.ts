@@ -92,6 +92,7 @@ export type BaileysEventMap = {
     association: LabelAssociation;
     type: "add" | "remove";
   };
+  "ack.error": { attrs: { [key: string]: string } };
 };
 
 export type BufferedEventData = {
