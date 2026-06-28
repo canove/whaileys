@@ -102,7 +102,11 @@ export const decryptSecretEncryptedMessage = async (
   logger?: Logger
 ) => {
   // PATCH: Revive messageSecret if it was corrupted by JSON stringification in the DB
-  if (messageSecret && !Buffer.isBuffer(messageSecret) && !(messageSecret instanceof Uint8Array)) {
+  if (
+    messageSecret &&
+    !Buffer.isBuffer(messageSecret) &&
+    !(messageSecret instanceof Uint8Array)
+  ) {
     if (typeof messageSecret === "string") {
       messageSecret = Buffer.from(messageSecret, "base64");
     } else if (typeof messageSecret === "object") {
@@ -110,7 +114,7 @@ export const decryptSecretEncryptedMessage = async (
       const keys = Object.keys(obj).filter(k => !isNaN(Number(k)));
       if (keys.length > 0) {
         const arr = new Uint8Array(keys.length);
-        for(let i = 0; i < keys.length; i++) arr[i] = obj[String(i)];
+        for (let i = 0; i < keys.length; i++) arr[i] = obj[String(i)];
         messageSecret = arr;
       }
     }
@@ -121,8 +125,7 @@ export const decryptSecretEncryptedMessage = async (
   if (!secretEncryptedMessage) return;
 
   const targetMessageKey = secretEncryptedMessage.targetMessageKey as
-    | WAMessageKey
-    | undefined;
+    WAMessageKey | undefined;
   const secretEncType = secretEncryptedMessage.secretEncType;
   const { SecretEncType } = proto.Message.SecretEncryptedMessage;
 
@@ -435,8 +438,7 @@ const processMessage = async (
 
         if (chat.id && isJidGroup(chat.id)) {
           const groupMetadata = config.groupMetadataCache?.get(chat.id) as
-            | GroupMetadata
-            | undefined;
+            GroupMetadata | undefined;
 
           if (!groupMetadata) break;
 
@@ -504,8 +506,7 @@ const processMessage = async (
       ev.emit("group-participants.update", { id: jid, participants, action });
 
       const groupMetadata = config.groupMetadataCache?.get(jid) as
-        | GroupMetadata
-        | undefined;
+        GroupMetadata | undefined;
 
       if (!groupMetadata) return;
 
@@ -522,8 +523,7 @@ const processMessage = async (
       ev.emit("groups.update", [{ id: jid, ...update }]);
 
       const groupMetadata = config.groupMetadataCache?.get(jid) as
-        | GroupMetadata
-        | undefined;
+        GroupMetadata | undefined;
 
       if (!groupMetadata) return;
 
