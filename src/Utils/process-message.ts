@@ -101,6 +101,21 @@ export const decryptSecretEncryptedMessage = async (
   meLid: string | undefined,
   logger?: Logger
 ) => {
+  // PATCH: Revive messageSecret if it was corrupted by JSON stringification in the DB
+  if (messageSecret && !Buffer.isBuffer(messageSecret) && !(messageSecret instanceof Uint8Array)) {
+    if (typeof messageSecret === "string") {
+      messageSecret = Buffer.from(messageSecret, "base64");
+    } else if (typeof messageSecret === "object") {
+      const obj: any = messageSecret;
+      const keys = Object.keys(obj).filter(k => !isNaN(Number(k)));
+      if (keys.length > 0) {
+        const arr = new Uint8Array(keys.length);
+        for(let i = 0; i < keys.length; i++) arr[i] = obj[String(i)];
+        messageSecret = arr;
+      }
+    }
+  }
+
   const content = normalizeMessageContent(message.message);
   const secretEncryptedMessage = content?.secretEncryptedMessage;
   if (!secretEncryptedMessage) return;
