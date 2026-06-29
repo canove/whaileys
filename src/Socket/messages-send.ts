@@ -860,6 +860,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
   return {
     ...sock,
+    sentMessagesCache: config.sentMessagesCache,
     getPrivacyTokens,
     getUSyncDevices,
     assertSessions,
