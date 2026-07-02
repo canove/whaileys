@@ -61,8 +61,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
     retryRequestDelayMs,
     getMessage,
     sentMessagesCache,
-    shouldIgnoreJid,
-    shouldResendMessageOn475AckError
+    shouldIgnoreJid
   } = config;
   const sock = makeMessagesSocket(config);
   const {
@@ -985,37 +984,9 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 
     logger.error({ attrs }, `received ${attrs.error} error in ack`);
 
+    // The ack error is emitted so the lib user can react to it (e.g. recover the
+    // message from `sock.sentMessagesCache` and resend it via `relayMessage`).
     ev.emit("ack.error", { attrs });
-
-    if (attrs.error === "475" && !isJidGroup(attrs.from)) {
-      if (shouldResendMessageOn475AckError) {
-        const key: WAMessageKey = {
-          remoteJid: attrs.from,
-          fromMe: true,
-          id: attrs.id
-        };
-
-        const msg =
-          ((await sentMessagesCache?.get(key.id!)) as
-            | proto.IMessage
-            | undefined) || (await getMessage(key, "bad-ack"));
-
-        if (msg) {
-          logger.trace(
-            { attrs },
-            "resending message with device_fanout set to false due to 475 ack error"
-          );
-
-          await relayMessage(key.remoteJid!, msg, {
-            messageId: key.id!,
-            useUserDevicesCache: false,
-            additionalAttributes: {
-              device_fanout: "false"
-            }
-          });
-        }
-      }
-    }
   };
 
   const flushBufferIfLastOfflineNode = (
