@@ -1,5 +1,16 @@
 # Baileys - Typescript/Javascript WhatsApp Web API
 
+> [!WARNING]
+> **This project is deprecated and no longer maintained.**
+>
+> We have moved to [**zapo**](https://github.com/vinikjkkj/zapo) ([`zapo-js`](https://www.npmjs.com/package/zapo-js) on npm), a high-performance TypeScript implementation of the WhatsApp Web protocol, and we recommend that all whaileys users migrate to it.
+>
+> - Repository: https://github.com/vinikjkkj/zapo
+> - Documentation: https://zapo.to
+> - Install: `npm install zapo-js`
+>
+> whaileys will not receive new features or fixes. The existing versions stay on npm, but they may stop working as WhatsApp changes its protocol. The documentation below is kept for reference only.
+
 Version based on [baileys 4.x](https://github.com/canove/whaileys/commit/6663357a37c6e295338cd82ecff5cabceeee1736). It should be compatible with v6.x of [whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys)
 
 Thanks to all [whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys) contributors for their work along the way.
@@ -38,6 +49,8 @@ To run the example script, download or clone the repo and then type the followin
 3. `yarn example`
 
 ## Install
+
+> **Deprecated:** for new projects, use [zapo](https://github.com/vinikjkkj/zapo) (`npm install zapo-js`) instead.
 
 Use the stable version:
 
