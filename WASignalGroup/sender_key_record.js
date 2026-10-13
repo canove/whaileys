@@ -10,6 +10,12 @@ class SenderKeyRecord {
         const list = serialized;
         for (let i = 0; i < list.length; i++) {
           const structure = list[i];
+          // Skip empty/corrupt states: they accumulate in the array when a
+          // key rotation is interrupted (retry receipt, reconnect), and
+          // getSenderKeyState() would return one of them, making
+          // getSenderChainKey() throw "Cannot read properties of null
+          // (reading 'iteration')" on every subsequent group send.
+          if (!structure || !structure.senderChainKey) continue;
           this.senderKeyStates.push(
             new SenderKeyState(null, null, null, null, null, null, structure)
           );
@@ -22,7 +28,22 @@ class SenderKeyRecord {
     }
   
     getSenderKeyState(keyId) {
-      if (!keyId && this.senderKeyStates.length) return this.senderKeyStates[0];
+      if (!keyId && this.senderKeyStates.length) {
+        // Most recent VALID state instead of a blind [0]: defensive, since
+        // an empty state can still reach the array through paths that do
+        // not go through deserialization.
+        for (let i = this.senderKeyStates.length - 1; i >= 0; i--) {
+          const state = this.senderKeyStates[i];
+          if (
+            state &&
+            state.senderKeyStateStructure &&
+            state.senderKeyStateStructure.senderChainKey
+          ) {
+            return state;
+          }
+        }
+        return this.senderKeyStates[0];
+      }
       for (let i = 0; i < this.senderKeyStates.length; i++) {
         const state = this.senderKeyStates[i];
         if (state.getKeyId() === keyId) {

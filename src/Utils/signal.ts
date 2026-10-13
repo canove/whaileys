@@ -243,9 +243,22 @@ export const encryptSenderKeyMsgSignalProto = async (
   const { [senderName]: senderKey } = await auth.keys.get("sender-key", [
     senderName
   ]);
-  if (!senderKey) {
+  // A record whose states are all empty is as good as missing: it would
+  // produce a key nobody can use.
+  const senderKeyValid = Array.isArray(senderKey)
+    ? senderKey.some((state: any) => state && state.senderChainKey)
+    : !!senderKey;
+  if (!senderKeyValid) {
     const record = new SenderKeyRecord();
     await auth.keys.set({ "sender-key": { [senderName]: record } });
+    // A recreated sender key MUST be redistributed to every participant.
+    // Without clearing the group's sender-key-memory, relayMessage still
+    // believes everyone already has the key (it refers to the PREVIOUS
+    // one), builds an empty senderKeyJids list, skips distribution, and
+    // relays the skmsg encrypted under a key no participant holds --
+    // nobody can decrypt it, nobody receives the message, and no error is
+    // raised anywhere.
+    await auth.keys.set({ "sender-key-memory": { [group]: {} } });
   }
 
   const senderKeyDistributionMessage = await builder.create(senderName);
